@@ -59,20 +59,38 @@ spec:
               value: {{ include "raven.thunderHost" . | quote }}
             - name: THUNDER_PORT
               value: {{ .Values.thunder.port | quote }}
+            {{- /* Only the OAuth token path uses this. Raven's administrative reads
+                 no longer involve an application id at all. */}}
             {{- if .Values.thunder.applicationId }}
             - name: APPLICATION_ID
               value: {{ .Values.thunder.applicationId | quote }}
             {{- end }}
-            {{- if .Values.thunder.systemUsername }}
-            - name: IDP_SYSTEM_USERNAME
-              value: {{ .Values.thunder.systemUsername | quote }}
-            {{- end }}
-            {{- if .Values.thunder.systemPasswordSecret }}
-            - name: IDP_SYSTEM_PASSWORD
+            {{- /* Raven authenticates to ThunderID as its own machine-to-machine
+                 application, not as the admin user: only fullstack and custom apps
+                 may start a login flow server-side, so the old route now answers 403.
+                 IDP_DIRECT_AUTH_SECRET separately gates the password-check endpoint,
+                 which answers 401 without it. */}}
+            {{- if .Values.thunder.idpSecretName }}
+            - name: IDP_CLIENT_ID
+              value: {{ .Values.thunder.idpClientId | default "RAVEN_SYSTEM" | quote }}
+            - name: IDP_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.thunder.systemPasswordSecret }}
-                  key: {{ .Values.thunder.systemPasswordSecretKey | default "password" }}
+                  name: {{ .Values.thunder.idpSecretName }}
+                  key: clientSecret
+            - name: IDP_DIRECT_AUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.thunder.idpSecretName }}
+                  key: directAuthSecret
+            {{- end }}
+            {{- /* The System resource server's identifier, which ThunderID derives from
+                 its own public URL. Raven defaults it to its own base URL plus /mcp,
+                 which already matches while raven reaches ThunderID on the public
+                 name. Set only if that stops being true. */}}
+            {{- if .Values.thunder.resourceIdentifier }}
+            - name: IDP_RESOURCE
+              value: {{ .Values.thunder.resourceIdentifier | quote }}
             {{- end }}
             - name: CACHE_TTL_SECONDS
               value: {{ .Values.env.cacheTtlSeconds | quote }}

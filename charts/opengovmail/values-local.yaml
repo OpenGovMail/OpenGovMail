@@ -14,34 +14,27 @@ opendkim:
 postfix:
   enabled: false
 
-thunder:
+thunderid:
   enabled: true
   configuration:
     server:
-      # Drives the base URL the console/gate SPAs call from the browser.
+      # Drives the base URL the console and gate SPAs call from the browser.
       publicUrl: "https://localhost:8090"
+      # Must equal global.ravenIdp.directAuthSecret; templates/domain-guard.yaml
+      # fails the render otherwise. Local-only value, fine to commit.
+      security:
+        directAuthSecret: "localdev-direct-auth-secret"
     gateClient:
       hostname: "localhost"
       port: 8090
       scheme: "https"
   setup:
-    env:
-      - name: THUNDER_ADMIN_USERNAME
-        value: "admin"
-      # Must match server.publicUrl — the bootstrap script registers the CONSOLE
-      # app's allowed redirect URI as ${THUNDER_PUBLIC_URL}/console. If this and
-      # publicUrl disagree, OAuth fails with "Invalid redirect URI".
-      - name: THUNDER_PUBLIC_URL
-        value: "https://localhost:8090"
     # Admin password comes from the Secret the umbrella generates
-    # (templates/thunder-admin-secret.yaml); no kubectl step is needed. The name
-    # must equal global.thunderAdmin.secretName and raven.thunder.systemPasswordSecret
-    # or templates/thunder-admin-secret.yaml fails the render. Read the generated
-    # value with:
+    # (templates/thunder-admin-secret.yaml); no kubectl step is needed. Read it with:
     #   kubectl get secret opengovmail-thunder-admin -n opengovmail \
     #     -o jsonpath='{.data.password}' | base64 -d
-    secretEnv:
-      - name: THUNDER_ADMIN_PASSWORD
-        secretName: opengovmail-thunder-admin
-        secretKey: password
-        optional: false
+    admin:
+      username: "admin"
+      passwordRef:
+        name: opengovmail-thunder-admin
+        key: password

@@ -17,26 +17,28 @@ reason: a literal that MUST track a derived value is guarded, not hoped over.
 Delete this file once the values it guards can be derived — the thunderid chart
 migration is where that becomes possible (see charts/PLAN.md).
 */}}
-{{- if .Values.thunder.enabled }}
+{{- if .Values.thunderid.enabled }}
 {{- $domain := include "opengovmail.domain" . }}
 {{- $expectedUrl := printf "https://%s:8090" $domain }}
 
-{{- $publicUrl := (((.Values.thunder).configuration).server).publicUrl }}
+{{- $publicUrl := (((.Values.thunderid).configuration).server).publicUrl }}
 {{- if and $publicUrl (ne $publicUrl $expectedUrl) }}
   {{- fail (printf "thunder.configuration.server.publicUrl (%s) does not match global.domain (%s). It becomes the JWT issuer, so it must be %s. Fix with:\n  --set thunder.configuration.server.publicUrl=%s" $publicUrl $domain $expectedUrl $expectedUrl) }}
 {{- end }}
 
-{{- $gateHost := (((.Values.thunder).configuration).gateClient).hostname }}
+{{- $gateHost := (((.Values.thunderid).configuration).gateClient).hostname }}
 {{- if and $gateHost (ne $gateHost $domain) }}
   {{- fail (printf "thunder.configuration.gateClient.hostname (%s) does not match global.domain (%s). Fix with:\n  --set thunder.configuration.gateClient.hostname=%s" $gateHost $domain $domain) }}
 {{- end }}
 
-{{- /* THUNDER_PUBLIC_URL drives the CONSOLE app's redirect URI at bootstrap; if it
-     disagrees with publicUrl, console login fails with "Invalid redirect URI". */}}
-{{- /* Entries can be nil: `--set thunder.setup.env[1].value=...` leaves index 0 nil. */}}
-{{- range (((.Values.thunder).setup).env | default list) }}
-  {{- if and . (eq (.name | default "") "THUNDER_PUBLIC_URL") (ne (.value | default "") $expectedUrl) }}
-    {{- fail (printf "thunder.setup.env THUNDER_PUBLIC_URL (%s) does not match global.domain (%s). It must equal thunder.configuration.server.publicUrl (%s), or the CONSOLE app is registered with the wrong redirect URI. Fix with:\n  --set 'thunder.setup.env[1].name=THUNDER_PUBLIC_URL' --set 'thunder.setup.env[1].value=%s'" (.value | default "") $domain $expectedUrl $expectedUrl) }}
-  {{- end }}
+{{- /* The Direct Auth Secret gates the password-check endpoint raven calls. It has to
+     be written twice — once for ThunderID's own config file, once for the Secret raven
+     reads — because Helm cannot template a values file, and the subchart takes this
+     value literally. Diverge and every mail login fails with 401, with nothing in the
+     render to hint why. */}}
+{{- $chartSecret := ((((.Values.thunderid).configuration).server).security).directAuthSecret | default "" }}
+{{- $globalSecret := ((.Values.global).ravenIdp).directAuthSecret | default "" }}
+{{- if ne $chartSecret $globalSecret }}
+  {{- fail "thunderid.configuration.server.security.directAuthSecret does not match global.ravenIdp.directAuthSecret. ThunderID and raven must agree on the secret gating the password-check endpoint. Pass the same value twice:\n  --set global.ravenIdp.directAuthSecret=$SECRET \\\n  --set thunderid.configuration.server.security.directAuthSecret=$SECRET" }}
 {{- end }}
 {{- end }}

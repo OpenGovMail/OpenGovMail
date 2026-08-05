@@ -1,11 +1,16 @@
-{{- if .Values.thunder.enabled }}
+{{- if .Values.thunderid.enabled }}
 {{- /*
-Thunder bootstrap scripts (01-default-resources.sh: admin user, CONSOLE app, roles;
-02-sample-resources.sh: EMAIL_APP SPA application + sample users). Sourced from
-charts/opengovmail/files/thunder-bootstrap/. The Thunder setup-job mounts them into
-/opt/thunder/bootstrap and runs them (common.sh comes from the image). Must be a
+ThunderID bootstrap data: the mail domain's organization units, a user type for it,
+raven's service account and the role granting it the system permission, and the
+application mail clients authenticate against. Sourced from
+charts/opengovmail/files/thunderid-bootstrap/. The setup job mounts it into
+/opt/thunderid/bootstrap and applies it alongside the image's own defaults. Must be a
 hook with weight < the setup-job's -5 so it exists before the setup-job pod starts;
 a plain resource would be created after the hook and the job would fail.
+
+Rendered through `tpl` rather than copied verbatim, because raven's client secret is
+generated at render time and has to appear both here — where the application is
+defined — and in the Secret raven reads.
 
 The name is read from thunder.bootstrap.configMap.name — the same value the subchart
 uses to mount it — so the two cannot disagree. Do NOT hardcode a name here: values
@@ -22,7 +27,7 @@ delete/recreate window is safe.
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ required "thunder.bootstrap.configMap.name is required when thunder.enabled" .Values.thunder.bootstrap.configMap.name }}
+  name: {{ required "thunderid.bootstrap.configMap.name is required when thunderid.enabled" .Values.thunderid.bootstrap.configMap.name }}
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "opengovmail.labels" . | nindent 4 }}
@@ -31,8 +36,8 @@ metadata:
     "helm.sh/hook-weight": "-12"
     "helm.sh/hook-delete-policy": before-hook-creation
 data:
-{{- range $path, $_ := .Files.Glob "files/thunder-bootstrap/*.sh" }}
+{{- range $path, $_ := .Files.Glob "files/thunderid-bootstrap/*.yaml" }}
   {{ base $path }}: |
-{{ $.Files.Get $path | indent 4 }}
+{{ tpl ($.Files.Get $path) $ | indent 4 }}
 {{- end }}
 {{- end }}

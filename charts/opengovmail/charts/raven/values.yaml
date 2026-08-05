@@ -6,7 +6,9 @@
 replicaCount: 1
 
 image:
-  repository: ghcr.io/lsflk/raven
+  # Published under OpenGovMail, where the repository now lives. The other silver
+  # images are still under lsflk.
+  repository: ghcr.io/opengovmail/raven
   tag: ""            # defaults to appVersion (":latest")
   pullPolicy: Always # floating tag; pin + IfNotPresent in prod
 
@@ -73,17 +75,23 @@ thunder:
   publicHost: ""     # default <domain>
   publicPort: 8090
   audience: EMAIL_APP
-  # Raven otherwise tries to read the app ID from `docker logs thunder-setup`
-  # (a compose-only hack needing the docker socket). Set this to skip that path.
-  # Empty is fine without Thunder — the group resolver just fails gracefully.
+  # Application mail clients authenticate against, used only when validating their
+  # OAuth tokens. Pinned by the umbrella's bootstrap data, so it is a constant rather
+  # than something to read back after an install.
   applicationId: ""
-  # System identity raven uses to obtain a system-scoped assertion for OU->domain
-  # resolution during login (IDP_SYSTEM_USERNAME / IDP_SYSTEM_PASSWORD; raven defaults
-  # admin/admin). Needs a user with system:ou:view (the bootstrap admin). Password is
-  # read from a Secret so it isn't committed.
-  systemUsername: ""           # e.g. admin
-  systemPasswordSecret: ""     # Secret name holding the admin password
-  systemPasswordSecretKey: password
+  # Credentials raven uses for its administrative reads: organization units, users
+  # and groups. The Secret carries two keys, clientSecret and directAuthSecret, and
+  # is created by the umbrella (templates/raven-idp-secret.yaml).
+  #
+  # This replaces the old admin username and password. ThunderID no longer permits a
+  # background service to log in as a person, and a password-check token carries no
+  # permissions, so raven authenticates as its own machine-to-machine application.
+  idpSecretName: ""            # e.g. opengovmail-raven-idp
+  idpClientId: RAVEN_SYSTEM
+  # Resource server identifier to request the token for. Empty lets raven derive it
+  # from its own base URL plus /mcp, which matches while raven reaches ThunderID on
+  # the public name.
+  resourceIdentifier: ""
 
 # S3-compatible blob storage for attachments. Defaults wire to the in-cluster
 # seaweedfs subchart. Credentials come from global.s3.* (shared with seaweedfs);
