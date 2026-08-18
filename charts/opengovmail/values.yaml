@@ -25,6 +25,31 @@ global:
     secretName: opengovmail-thunder-admin
     secretKey: password
     password: ""
+  # Credentials raven uses against ThunderID, created by
+  # templates/raven-idp-secret.yaml and read by the raven Deployment.
+  #
+  # Raven no longer logs in as the admin user: ThunderID only lets fullstack and
+  # custom applications start a login flow server-side, and the Console app is a
+  # browser app, so that route now answers 403. Raven authenticates as its own
+  # machine-to-machine application instead. See charts/PLAN.md.
+  #
+  # clientSecret: generated on first install and reused thereafter, exactly like
+  # the admin password above. The umbrella owns both ends — the bootstrap data
+  # that defines the application, and the Secret raven reads — so nothing has to
+  # be supplied by hand.
+  #
+  # directAuthSecret: MUST be supplied. It gates ThunderID's password-check
+  # endpoint, and unlike the client secret it cannot be generated here: it has to
+  # appear as a literal in the vendored subchart's own values, which Helm cannot
+  # template. Set the same value in both places, or the render fails with a
+  # message telling you so:
+  #   --set global.ravenIdp.directAuthSecret=$SECRET \
+  #   --set thunderid.configuration.server.security.directAuthSecret=$SECRET
+  ravenIdp:
+    secretName: opengovmail-raven-idp
+    clientId: RAVEN_SYSTEM
+    clientSecret: ""
+    directAuthSecret: ""
   # Shared S3 credentials so seaweedfs (server) and raven (client) always agree.
   # secretKey "" => both charts DERIVE the same key from the release name
   # (deterministic, no cross-lookup) so a fresh one-command install matches out
@@ -100,24 +125,31 @@ raven:
     # in-cluster SAN; tracked with the Thunder cert-mount work.
     host: ""
     publicHost: ""
-    # CONSOLE app id (has system:ou:view scope). raven needs it to get a token for
-    # OU->domain resolution during login. Without it, raven falls back to reading
-    # `docker logs thunder-setup` (compose-only, no Docker socket in k8s) and login
-    # fails with "unable to resolve expected IdP domain".
+    # Application mail clients authenticate against. Pinned in the bootstrap data
+    # (files/thunderid-bootstrap/), so unlike the old CONSOLE id it is a constant
+    # and never needs reading back out of the database after an install.
     #
-    # Deliberately EMPTY: Thunder's bootstrap mints a new CONSOLE application UUID
-    # on every install, so no committed value can be right for anyone else. Read it
-    # after the first install and pass it on the next upgrade:
-    #   kubectl exec -n opengovmail deploy/opengovmail-thunder-deployment -- \
-    #     sqlite3 -json /opt/thunder/repository/database/configdb.db \
-    #     "select ID, json_extract(APP_JSON,'\$.properties.url') from APPLICATION;"
-    # The entry whose url ends in /console is the one to use.
-    applicationId: ""
-    # System identity for OU resolution: authenticate as admin (has system:ou:view)
-    # to read the logging-in user's OU domain. Password from the bootstrap admin secret.
-    systemUsername: admin
-    systemPasswordSecret: opengovmail-thunder-admin
-    systemPasswordSecretKey: password
+    # Only the OAuth token path uses it. Raven's administrative reads no longer
+    # involve an application id at all.
+    applicationId: "01900000-0000-7000-8000-0000000000c1"
+    # Identity raven uses for its administrative reads (organization units, users,
+    # groups). Both credentials come from the Secret templates/raven-idp-secret.yaml
+    # creates; see global.ravenIdp for how each is obtained.
+    #
+    # This replaces the old admin username and password. ThunderID no longer lets a
+    # background service log in as a person, and a password-check token carries no
+    # permissions, so raven authenticates as its own machine-to-machine application.
+    idpSecretName: opengovmail-raven-idp
+    # The resource server raven asks its token for. Counter-intuitively this is
+    # localhost and NOT the deployment's own URL: ThunderID's shipped defaults
+    # register the System resource server with the literal identifier
+    # https://localhost:8090/mcp, whatever public URL the server is configured with.
+    #
+    # Verified by reading /resource-servers back from a running install. Raven would
+    # otherwise derive it from its own base URL, and the token request fails with
+    # invalid_target — which names the resource parameter and gives no hint that the
+    # registered identifier is a hardcoded localhost.
+    resourceIdentifier: "https://localhost:8090/mcp"
 
 seaweedfs:
   enabled: true
@@ -125,27 +157,27 @@ seaweedfs:
     accessKey: raven
     secretKey: ""
     bucket: email-attachments
-# Thunder identity server. Values below reproduce the docker-compose thunder
-# setup (services/docker-compose.yaml): a shared SQLite database seeded from the
-# image, a one-time setup job, and the bootstrap scripts.
+# ThunderID identity server: a SQLite database seeded from the image, a one-time
+# setup job, and declarative bootstrap data.
 #
 # The server image tag is deliberately NOT pinned here — it defaults to the
 # subchart's appVersion, so bumping the dependency version in Chart.yaml also
 # moves the image. Pinning it here silently decouples the two.
 #
 # The bootstrap ConfigMap is rendered by the umbrella from
-# files/thunder-bootstrap/ (templates/thunder-bootstrap-configmap.yaml), so no
+# files/thunderid-bootstrap/ (templates/thunder-bootstrap-configmap.yaml), so no
 # out-of-band script is needed to create it.
-thunder:
+thunderid:
   enabled: true
 
   deployment:
-    # SQLite is single-writer, so run exactly one pod (matches the single
-    # `thunder` container in compose).
+    # SQLite is single-writer, so run exactly one pod.
     replicaCount: 1
     securityContext:
-      # SQLite needs a writable filesystem; the chart requires this to be false
-      # whenever a sqlite database is used.
+      # 1.0.0-alpha2 dropped the "must be false when using sqlite" caveat from its
+      # own values: the database now lives on a PVC at /opt/thunderid/database and
+      # /tmp is an emptyDir, so nothing needs to write to the image filesystem.
+      # Left false until a k3d run proves true works; flip it and delete this note.
       readOnlyRootFilesystem: false
 
   # A single SQLite pod cannot be horizontally scaled. The chart defaults HPA on
@@ -154,18 +186,31 @@ thunder:
   hpa:
     enabled: false
 
-  # In compose, thunder is reached in-cluster on 8090 (raven -> thunder:8090).
-  # External access to the console/gate UIs on 8090 comes from
-  # templates/thunder-lb.yaml, not from this ingress.
+  # Raven reaches ThunderID in-cluster on 8090. External access to the console and
+  # gate UIs on 8090 comes from templates/thunder-lb.yaml, not from this ingress.
   ingress:
     enabled: false
 
-  # SQLite requires a PVC. An init container seeds it from the image on first
-  # start — this is the Helm equivalent of the compose `thunder-db-init` service
-  # (and the shared thunder-db / consent-db volumes).
+  # SQLite requires a PVC. An init container seeds it from the image on first start.
   persistence:
     enabled: true
     size: 1Gi
+
+  # New in this chart: the setup job generates this deployment's TLS, JWT-signing
+  # and encryption keys onto their own volume, and the server reads them from it.
+  # Nothing is baked into the image, so every install gets unique keys.
+  #
+  # Treat as persistent. Losing this volume invalidates every token ever issued and
+  # makes previously encrypted data unreadable. The 16Mi defaults are plenty.
+  certs:
+    persistence:
+      size: 16Mi
+  # Runtime secrets the setup job generates. We set the Direct Auth Secret
+  # explicitly (see global.ravenIdp), so this volume matters less, but the chart
+  # still mounts it.
+  secrets:
+    persistence:
+      size: 16Mi
 
   configuration:
     # Public URL the console/gate SPAs are served from and call back to.
@@ -174,31 +219,42 @@ thunder:
     # redirect URI won't match and OAuth login fails.
     server:
       publicUrl: ""
-    # gate UI is served by Thunder on :8090 (via the thunder-lb), not :443.
+      # Gates the password-check endpoint raven calls; without it every login gets
+      # 401. Must equal global.ravenIdp.directAuthSecret — templates/domain-guard.yaml
+      # fails the render if they diverge. It cannot be derived from the global
+      # value: Helm does not template values files, and the subchart writes this
+      # straight into its config file.
+      security:
+        directAuthSecret: ""
+    # gate UI is served by ThunderID on :8090 (via the thunder-lb), not :443.
     gateClient:
       hostname: ""
       port: 8090
-    # Must match the app raven authenticates as (EMAIL_APP, per the bootstrap).
+    # Must match the app raven validates client tokens against (EMAIL_APP, per the
+    # bootstrap data).
     jwt:
       audience: "EMAIL_APP"
+    # Role names changed in this chart: runtime became runtime_transient, user
+    # became entity, and runtime_persistent is new — it holds sessions, revoked
+    # tokens and consent records, which used to be a separate consent database.
     database:
       config:
         type: "sqlite"
-      runtime:
+      runtime_transient:
         type: "sqlite"
-      user:
+      entity:
         type: "sqlite"
-    consent:
-      enabled: true
-      database:
+      runtime_persistent:
         type: "sqlite"
 
-  # One-time initialization job (compose `thunder-setup` running ./setup.sh).
+  # One-time initialization job. Runs on install only — it cannot re-run against a
+  # database it has already bootstrapped, which is why changing the bootstrap data
+  # means deleting the namespace rather than running an upgrade.
   setup:
     enabled: true
-    # setup.sh runs the main and consent servers plus the bootstrap scripts in
-    # one pod; the chart default (100Mi) OOM-kills the consent server with
-    # "exited unexpectedly".
+    # The consent server, which the old 768Mi bump existed to stop OOM-killing, is
+    # gone in this chart — consent is built into the server now. Left generous
+    # until a k3d run shows what the declarative bootstrap actually needs.
     resources:
       limits:
         cpu: 500m
@@ -206,39 +262,37 @@ thunder:
       requests:
         cpu: 100m
         memory: 256Mi
-    env:
-      - name: THUNDER_ADMIN_USERNAME
-        value: "admin"
-      # Must match configuration.server.publicUrl above. The bootstrap script
-      # registers the CONSOLE app's redirect URI as ${THUNDER_PUBLIC_URL}/console;
-      # unset, it falls back to THUNDER_API_BASE (localhost) and console login
-      # fails with "Invalid redirect URI".
-      - name: THUNDER_PUBLIC_URL
-        value: ""
-    # Admin password comes from the Secret the umbrella creates
-    # (templates/thunder-admin-secret.yaml); no kubectl step is needed. The name
-    # must equal global.thunderAdmin.secretName and raven.thunder.systemPasswordSecret
-    # — the template fails the render if they diverge. To read the generated value:
+    # Keeps the setup Job after it succeeds instead of deleting it immediately.
+    # Without this its log is gone the moment it finishes, and a failed bootstrap
+    # has to be diagnosed from the database. Turn off once this is stable.
+    preserveJob: true
+    # Structured admin block, replacing the environment-variable workaround. The
+    # password comes from the Secret the umbrella creates
+    # (templates/thunder-admin-secret.yaml), which raven no longer reads but the
+    # console login still needs. Read the generated value with:
     #   kubectl get secret opengovmail-thunder-admin -n opengovmail \
     #     -o jsonpath='{.data.password}' | base64 -d
-    secretEnv:
-      - name: THUNDER_ADMIN_PASSWORD
-        secretName: opengovmail-thunder-admin
-        secretKey: password
-        optional: false
+    admin:
+      username: "admin"
+      passwordRef:
+        name: opengovmail-thunder-admin
+        key: password
 
-  # Bootstrap scripts, delivered via the ConfigMap the umbrella renders from
-  # files/thunder-bootstrap/. Listing files mounts only these via subPath,
-  # preserving the image's default bootstrap scripts (e.g. common.sh, which
-  # 01/02 source).
+  # Bootstrap data, delivered via the ConfigMap the umbrella renders from
+  # files/thunderid-bootstrap/. Declarative YAML now, not shell: roughly 1,900
+  # lines of script became one file, because upstream's own defaults already
+  # create the default organization unit, user types, flows, roles, themes and the
+  # console application, all with fixed ids. We add only what they lack.
+  #
+  # Listing the file mounts just it, leaving those defaults in place. Mounting the
+  # whole ConfigMap instead would replace them entirely.
   #
   # This name is the single source of truth: templates/thunder-bootstrap-configmap.yaml
-  # reads it too, so the ConfigMap that gets created and the one the setup-job
+  # reads it too, so the ConfigMap that gets created and the one the setup job
   # mounts are always the same object. Kept release-independent, matching the
   # global.serviceNames convention — one release per namespace.
   bootstrap:
     configMap:
       name: "thunder-bootstrap"
       files:
-        - 01-default-resources.sh
-        - 02-sample-resources.sh
+        - 70-mail-domain.yaml

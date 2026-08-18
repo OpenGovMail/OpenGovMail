@@ -1,0 +1,83 @@
+{{- /*
+This umbrella's additions to ThunderID's shipped default resources.
+
+Rendered through `tpl` by templates/thunder-bootstrap-configmap.yaml, so raven's
+client secret comes from the Secret the umbrella generates. Nothing here is
+hardcoded to one deployment.
+
+Upstream's own defaults already create the default organization unit, the Person
+user type, the System resource server, flows, the Administrators group, the
+Administrator role, themes and the Console application, all with fixed ids. This
+file adds raven's service account, the role granting it the system permission,
+and the application mail clients authenticate against — attached to upstream's
+own DEFAULT organization unit and Person user type, same as everything else
+upstream ships. Ids in the 0000000000bN range are ours; upstream uses 000000000NN.
+*/ -}}
+{{- $clientSecret := include "opengovmail.ravenClientSecret" . -}}
+# --- Raven's service account -----------------------------------------------------
+# Raven is a background service, so it authenticates as a machine-to-machine client.
+# It used to drive the interactive login flow as the admin user, which ThunderID now
+# refuses: only fullstack and custom applications may start a flow server-side, and
+# the Console application is a browser app, so that route answers 403.
+resource_type: application
+id: 01900000-0000-7000-8000-0000000000b1
+name: Raven System
+description: Machine-to-machine client raven uses to read organization units, users and groups
+type: m2m
+ouId: 01900000-0000-7000-8000-000000000001
+inboundAuthConfig:
+  - type: oauth2
+    config:
+      clientId: {{ .Values.global.ravenIdp.clientId }}
+      clientSecret: {{ $clientSecret | quote }}
+      grantTypes:
+        - client_credentials
+      tokenEndpointAuthMethod: client_secret_basic
+      publicClient: false
+      allowedAudiences:
+        - "{{ "{{" }} .PUBLIC_URL {{ "}}" }}/mcp"
+---
+# --- The permission that account needs -------------------------------------------
+# Permissions live on roles, and a role can be assigned to an application as well as
+# to users and groups. Without this the token is still issued, but every
+# administrative endpoint answers 403 Forbidden.
+resource_type: role
+id: 01900000-0000-7000-8000-0000000000b2
+name: Raven System Role
+description: Grants raven the system permission on the System resource server
+ouHandle: default
+permissions:
+  - resourceServerId: 01900000-0000-7000-8000-000000000020
+    permissions:
+      - system
+assignments:
+  - id: 01900000-0000-7000-8000-0000000000b1
+    type: app
+---
+# --- The application mail clients authenticate against ---------------------------
+# Raven validates the tokens mail clients present against this application's
+# audience. The id is pinned, so unlike the old CONSOLE application it never has to
+# be read back out of the database after an install.
+resource_type: application
+id: 01900000-0000-7000-8000-0000000000c1
+name: Email App
+description: OAuth client for mail clients (IMAP and SMTP)
+type: browser
+ouId: 01900000-0000-7000-8000-000000000001
+url: "{{ "{{" }} .PUBLIC_URL {{ "}}" }}"
+allowedUserTypes:
+  - Person
+inboundAuthConfig:
+  - type: oauth2
+    config:
+      clientId: EMAIL_APP
+      redirectUris:
+        - "http://localhost:8080/callback"
+      grantTypes:
+        - authorization_code
+        - refresh_token
+      responseTypes:
+        - code
+      pkceRequired: true
+      tokenEndpointAuthMethod: none
+      publicClient: true
