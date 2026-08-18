@@ -1,99 +1,19 @@
 {{- /*
 This umbrella's additions to ThunderID's shipped default resources.
 
-Rendered through `tpl` by templates/thunder-bootstrap-configmap.yaml, so the
-organization units follow global.domain and raven's client secret comes from the
-Secret the umbrella generates. Nothing here is hardcoded to one deployment.
+Rendered through `tpl` by templates/thunder-bootstrap-configmap.yaml, so raven's
+client secret comes from the Secret the umbrella generates. Nothing here is
+hardcoded to one deployment.
 
 Upstream's own defaults already create the default organization unit, the Person
 user type, the System resource server, flows, the Administrators group, the
 Administrator role, themes and the Console application, all with fixed ids. This
-file adds only what they lack. Ids in the 0000000000aN and 0000000000bN range are
-ours; upstream uses 000000000NN.
+file adds raven's service account, the role granting it the system permission,
+and the application mail clients authenticate against — attached to upstream's
+own DEFAULT organization unit and Person user type, same as everything else
+upstream ships. Ids in the 0000000000bN range are ours; upstream uses 000000000NN.
 */ -}}
-{{- $domain := include "opengovmail.domain" . -}}
-{{- $parts := splitList "." $domain -}}
-{{- $rootDomain := $domain -}}
-{{- $subdomain := "" -}}
-{{- if gt (len $parts) 2 -}}
-  {{- $rootDomain = join "." (slice $parts (sub (len $parts) 2)) -}}
-  {{- $subdomain = join "." (slice $parts 0 (sub (len $parts) 2)) -}}
-{{- end -}}
-{{- $mailOu := ternary "01900000-0000-7000-8000-0000000000a2" "01900000-0000-7000-8000-0000000000a1" (ne $subdomain "") -}}
 {{- $clientSecret := include "opengovmail.ravenClientSecret" . -}}
-# --- The mail domain -----------------------------------------------------------
-# Raven treats a domain as hosted if, and only if, an organization unit exists for
-# it, and builds the lookup path straight from the address. So handles carry dots:
-# alice@{{ $domain }} is resolved at /organization-units/tree/{{ $rootDomain }}{{ if $subdomain }}/{{ $subdomain }}{{ end }}.
-resource_type: organization_unit
-id: 01900000-0000-7000-8000-0000000000a1
-handle: {{ $rootDomain }}
-name: {{ $rootDomain }}
-description: Root organization unit for {{ $rootDomain }}
-{{- if $subdomain }}
----
-resource_type: organization_unit
-id: 01900000-0000-7000-8000-0000000000a2
-handle: {{ $subdomain }}
-name: {{ $subdomain }}
-description: Mail domain {{ $domain }}
-parent: 01900000-0000-7000-8000-0000000000a1
-{{- end }}
----
-# --- A user type for that domain -------------------------------------------------
-# A user type belongs to one organization unit, and a user can only be created with
-# a type from its own unit. Upstream's Person type belongs to the DEFAULT unit, so
-# without this every mailbox creation fails with USR-1023 "organization unit
-# mismatch".
-#
-# The name must not be Person: user type names are unique across the whole server,
-# not per organization unit, and reusing it fails the entire bootstrap with
-# USRS-1003.
-#
-# ouHandle is the full path, not the bare handle. A nested unit addressed by its
-# own handle alone fails the bootstrap with USRS-1004 "invalid user type request",
-# which says nothing about paths.
-resource_type: user_type
-id: 01900000-0000-7000-8000-0000000000a3
-category: user
-name: MailUser
-ouHandle: {{ if $subdomain }}{{ $rootDomain }}/{{ $subdomain }}{{ else }}{{ $rootDomain }}{{ end }}
-systemAttributes:
-  display: username
-schema:
-  username:
-    type: string
-    displayName: Username
-    required: true
-    unique: true
-  email:
-    type: string
-    displayName: Email
-    required: true
-    unique: true
-    regex: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
-  given_name:
-    type: string
-    displayName: First Name
-    required: false
-  family_name:
-    type: string
-    displayName: Last Name
-    required: false
-  sub:
-    type: string
-    displayName: Subject
-    required: false
-  name:
-    type: string
-    displayName: Full Name
-    required: false
-  password:
-    type: string
-    displayName: Password
-    required: false
-    credential: true
----
 # --- Raven's service account -----------------------------------------------------
 # Raven is a background service, so it authenticates as a machine-to-machine client.
 # It used to drive the interactive login flow as the admin user, which ThunderID now
@@ -143,10 +63,10 @@ id: 01900000-0000-7000-8000-0000000000c1
 name: Email App
 description: OAuth client for mail clients (IMAP and SMTP)
 type: browser
-ouId: {{ $mailOu }}
+ouId: 01900000-0000-7000-8000-000000000001
 url: "{{ "{{" }} .PUBLIC_URL {{ "}}" }}"
 allowedUserTypes:
-  - MailUser
+  - Person
 inboundAuthConfig:
   - type: oauth2
     config:
