@@ -3,14 +3,30 @@ set -e
 
 CONFIG_FILE="/etc/postfix/opengovmail.yaml"
 
+# Fail fast if the config file is missing or unreadable.
+# Never fall back to a placeholder domain — that would leave Postfix
+# running for the wrong domain.
+if [ ! -f "$CONFIG_FILE" ]; then
+    echo "ERROR: Config file not found: $CONFIG_FILE" >&2
+    echo "ERROR: Please ensure opengovmail.yaml is mounted correctly. Refusing to start." >&2
+    exit 1
+fi
+
+if [ ! -r "$CONFIG_FILE" ]; then
+    echo "ERROR: Config file not readable: $CONFIG_FILE" >&2
+    exit 1
+fi
+
 # Extract primary (first) domain from the domains list using awk
 MAIL_DOMAIN=$(awk '/^[[:space:]]*-[[:space:]]*domain:/ {sub(/^[[:space:]]*-[[:space:]]*domain:[[:space:]]*/, ""); print; exit}' "$CONFIG_FILE")
+# Trim surrounding whitespace (awk leaves empty/whitespace-only values behind)
+MAIL_DOMAIN=$(echo "$MAIL_DOMAIN" | xargs)
 
-# Fallback if extraction failed
+# Fail fast if extraction failed — never use a placeholder domain
 if [ -z "$MAIL_DOMAIN" ] || [ "$MAIL_DOMAIN" = "null" ]; then
-    echo "⚠️  Warning: Could not extract domain from $CONFIG_FILE"
-    echo "⚠️  Please ensure opengovmail.yaml has domains configured"
-    MAIL_DOMAIN="example.org"
+    echo "ERROR: Could not extract domain from $CONFIG_FILE" >&2
+    echo "ERROR: Please ensure opengovmail.yaml has domains configured. Refusing to start." >&2
+    exit 1
 fi
 
 # -------------------------------
