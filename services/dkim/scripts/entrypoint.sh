@@ -5,14 +5,28 @@ CONFIG_FILE="/etc/opendkim/opengovmail.yaml"
 
 echo "=== Extracting domains from $CONFIG_FILE ==="
 
-# Extract all domains from the YAML configuration
-DOMAINS=$(yq eval '.domains[].domain' "$CONFIG_FILE" 2>/dev/null | grep -v '^null$' | grep -v '^$' || echo "")
+# Fail fast if the config file is missing or unreadable.
+# Silently falling back to a placeholder domain would leave OpenDKIM
+# running while signing for the wrong domain.
+if [ ! -f "$CONFIG_FILE" ]; then
+    echo "ERROR: Config file not found: $CONFIG_FILE" >&2
+    echo "ERROR: Please ensure opengovmail.yaml is mounted correctly. Refusing to start." >&2
+    exit 1
+fi
 
-# Fallback if no domains found
+if [ ! -r "$CONFIG_FILE" ]; then
+    echo "ERROR: Config file not readable: $CONFIG_FILE" >&2
+    exit 1
+fi
+
+# Extract all domains from the YAML configuration
+DOMAINS=$(yq eval '.domains[].domain' "$CONFIG_FILE" 2>/dev/null | grep -v '^null$' | grep -v '^$' || true)
+
+# Fail fast if no domains found — never fall back to a placeholder domain
 if [ -z "$DOMAINS" ]; then
-    echo "⚠️  Warning: Could not extract domains from $CONFIG_FILE"
-    echo "⚠️  Please ensure opengovmail.yaml has domains configured"
-    DOMAINS="example.org"
+    echo "ERROR: Could not extract domains from $CONFIG_FILE" >&2
+    echo "ERROR: Please ensure opengovmail.yaml has domains configured. Refusing to start." >&2
+    exit 1
 fi
 
 # Get the primary domain (first one)
