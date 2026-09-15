@@ -52,11 +52,11 @@ spec:
               mountPath: /etc/postfix/master.cf
               subPath: master.cf
             - name: postfix-opengovmail
-              # NOTE: filename must stay "silver.yaml" until the postfix image is
-              # rebuilt — the current ghcr.io/lsflk/silver-smtp image's entrypoint
+              # NOTE: filename must stay "opengovmail.yaml" until the postfix image is
+              # rebuilt — the current ghcr.io/opengovmail/opengovmail-smtp image's entrypoint
               # script has this exact path hardcoded.
-              mountPath: /etc/postfix/silver.yaml
-              subPath: silver.yaml
+              mountPath: /etc/postfix/opengovmail.yaml
+              subPath: opengovmail.yaml
             {{- if .Values.global.tls.enabled }}
             - name: tls
               mountPath: /certs
@@ -100,8 +100,8 @@ spec:
           configMap:
             name: {{ include "postfix.fullname" . }}
             items:
-              - key: silver.yaml
-                path: silver.yaml
+              - key: opengovmail.yaml
+                path: opengovmail.yaml
         {{- if .Values.global.tls.enabled }}
         - name: tls
           secret:

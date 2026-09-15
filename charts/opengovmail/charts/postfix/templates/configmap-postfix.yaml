@@ -9,6 +9,6 @@ data:
 {{ tpl (.Files.Get "files/postfix/main.cf") . | indent 4 }}
   master.cf: |
 {{ tpl (.Files.Get "files/postfix/master.cf") . | indent 4 }}
-  silver.yaml: |
+  opengovmail.yaml: |
     domains:
       - domain: {{ include "opengovmail.domain" . }}

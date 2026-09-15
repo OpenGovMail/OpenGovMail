@@ -3,7 +3,7 @@
 # umbrella's `global` block (global.domain, global.serviceNames, global.tlsSecretName).
 
 image:
-  repository: ghcr.io/lsflk/silver-smtp
+  repository: ghcr.io/opengovmail/opengovmail-smtp
   tag: main
   pullPolicy: Always
 
