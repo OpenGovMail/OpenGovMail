@@ -63,6 +63,17 @@ s3:
   bucket: email-attachments
   region: us-east-1
   identityName: raven
+  # Extra S3 identities on this same SeaweedFS instance, each with its own
+  # bucket/credentials (e.g. a separate app that shouldn't share Raven's
+  # bucket or key). secretKey empty => derived like the primary key, but
+  # namespaced by identity name so it doesn't collide with raven's.
+  additionalIdentities: []
+  # additionalIdentities:
+  #   - name: nextcloud
+  #     accessKey: nextcloud
+  #     secretKey: ""
+  #     bucket: nextcloud
+  #     actions: ["Read", "Write", "List", "Tagging"]
 
 persistence:
   # Empty => cluster default StorageClass. Clusters without a default
