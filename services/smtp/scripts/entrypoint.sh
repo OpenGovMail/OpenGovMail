@@ -20,7 +20,7 @@ fi
 # Extract primary (first) domain from the domains list using awk
 MAIL_DOMAIN=$(awk '/^[[:space:]]*-[[:space:]]*domain:/ {sub(/^[[:space:]]*-[[:space:]]*domain:[[:space:]]*/, ""); print; exit}' "$CONFIG_FILE")
 # Trim surrounding whitespace (awk leaves empty/whitespace-only values behind)
-MAIL_DOMAIN=$(echo "$MAIL_DOMAIN" | xargs)
+MAIL_DOMAIN="$(echo "$MAIL_DOMAIN" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
 
 # Fail fast if extraction failed — never use a placeholder domain
 if [ -z "$MAIL_DOMAIN" ] || [ "$MAIL_DOMAIN" = "null" ]; then
