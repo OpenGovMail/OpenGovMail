@@ -164,30 +164,45 @@ This mounts `01-default-resources.sh` and `02-sample-resources.sh` via `subPath`
 preserving the image's default bootstrap scripts (including `common.sh`, which
 `01`/`02` source). Re-run it to push script changes; it is idempotent.
 
-### Admin credentials (Secret, required before install)
+### Admin credentials (set before install)
 
-The admin **username** is `admin` (in `thunder.setup.env`). The **password** is
-not stored in values — it is read from a Secret via `thunder.setup.secretEnv`.
-Create it in the release namespace before installing:
+The admin **username** is `admin` (in `thunder.setup.env`). The **password**
+comes from the `opengovmail-thunder-admin` Secret, which the umbrella chart
+itself creates (`templates/thunder-admin-secret.yaml`) — set it explicitly
+via `global.thunderAdmin.password` in a values file or `--set` before
+installing:
+
+```yaml
+global:
+  thunderAdmin:
+    password: "<your-password>"
+```
+
+Set it explicitly rather than leaving it blank: if unset, the chart
+auto-generates a password using `lookup` against the live cluster at render
+time, which only works for a real `helm upgrade --install`. A
+`helm template | kubectl apply` (GitOps) render can't see the cluster and
+would mint a fresh random password on every render, silently rotating the
+credential. Setting the password explicitly avoids this.
+
+If you do leave it blank, the generated value can still be read back with:
 
 ```bash
-kubectl create secret generic thunder-admin-credentials \
-  --namespace opengovmail \
-  --from-literal=password='<your-password>'
+kubectl get secret opengovmail-thunder-admin -n opengovmail \
+  -o jsonpath='{.data.password}' | base64 -d
 ```
 
 ### Install
 
 ```bash
-# 1. Bootstrap ConfigMap + admin Secret first (pre-install hook dependencies)
+# 1. Bootstrap ConfigMap first (pre-install hook dependency)
 scripts/thunder/create-bootstrap-configmap.sh opengovmail
-kubectl create secret generic thunder-admin-credentials \
-  --namespace opengovmail --from-literal=password='<your-password>'
 
 # 2. Install the umbrella (Thunder enabled by default)
 helm dependency update ./charts/opengovmail
 helm upgrade --install opengovmail ./charts/opengovmail \
   --set global.domain=yourdomain.com \
+  --set global.thunderAdmin.password=<your-password> \
   --namespace opengovmail --create-namespace
 ```
 
