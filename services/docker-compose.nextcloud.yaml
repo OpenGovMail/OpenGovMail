@@ -1,0 +1,63 @@
+services:
+  nextcloud:
+    image: nextcloud:stable
+    container_name: nextcloud
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_DB: nextcloud
+      POSTGRES_USER: nextcloud
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      REDIS_HOST: redis
+      # The image's own config/s3.config.php reads these and sets S3 as
+      # primary storage. Do not add a custom objectstore config file instead:
+      # s3.config.php sorts last among config/*.config.php and would override
+      # it, silently reinstating the three defaults below (SSL on, path style
+      # off, autocreate on) -- which against SeaweedFS produces a TLS handshake
+      # against a plain-HTTP port and a 30s hang on every single upload.
+      OBJECTSTORE_S3_BUCKET: ${S3_BUCKET}
+      OBJECTSTORE_S3_KEY: ${S3_ACCESS_KEY}
+      OBJECTSTORE_S3_SECRET: ${S3_SECRET_KEY}
+      OBJECTSTORE_S3_HOST: ${S3_HOST}
+      OBJECTSTORE_S3_PORT: ${S3_PORT}
+      OBJECTSTORE_S3_REGION: ${S3_REGION}
+      OBJECTSTORE_S3_SSL: "false"          # SeaweedFS S3 gateway is plain HTTP
+      OBJECTSTORE_S3_USEPATH_STYLE: "true" # SeaweedFS has no virtual-host addressing
+      OBJECTSTORE_S3_AUTOCREATE: "false"   # bucket comes from the seaweedfs chart's bucket-init job
+    volumes:
+      - nextcloud_data:/var/www/html
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  db:
+    image: postgres:16-alpine
+    container_name: nextcloud-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: nextcloud
+      POSTGRES_USER: nextcloud
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nextcloud -d nextcloud"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: nextcloud-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
+volumes:
+  nextcloud_data:
+  postgres_data:
+  redis_data:
