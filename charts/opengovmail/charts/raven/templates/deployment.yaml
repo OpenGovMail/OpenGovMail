@@ -66,7 +66,9 @@ spec:
                  which answers 401 without it. */}}
             {{- if .Values.thunder.idpSecretName }}
             - name: IDP_CLIENT_ID
-              value: {{ .Values.thunder.idpClientId | default "RAVEN_SYSTEM" | quote }}
+              {{- /* The umbrella's global value wins, so this always matches the
+                   client id its bootstrap data registers in ThunderID. */}}
+              value: {{ ((.Values.global).ravenIdp).clientId | default .Values.thunder.idpClientId | default "RAVEN_SYSTEM" | quote }}
             - name: IDP_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:

@@ -23,22 +23,28 @@ migration is where that becomes possible (see charts/PLAN.md).
 
 {{- $publicUrl := (((.Values.thunderid).configuration).server).publicUrl }}
 {{- if and $publicUrl (ne $publicUrl $expectedUrl) }}
-  {{- fail (printf "thunder.configuration.server.publicUrl (%s) does not match global.domain (%s). It becomes the JWT issuer, so it must be %s. Fix with:\n  --set thunder.configuration.server.publicUrl=%s" $publicUrl $domain $expectedUrl $expectedUrl) }}
+  {{- fail (printf "thunderid.configuration.server.publicUrl (%s) does not match global.domain (%s). It becomes the JWT issuer, so it must be %s. Fix with:\n  --set thunderid.configuration.server.publicUrl=%s" $publicUrl $domain $expectedUrl $expectedUrl) }}
 {{- end }}
 
 {{- $gateHost := (((.Values.thunderid).configuration).gateClient).hostname }}
 {{- if and $gateHost (ne $gateHost $domain) }}
-  {{- fail (printf "thunder.configuration.gateClient.hostname (%s) does not match global.domain (%s). Fix with:\n  --set thunder.configuration.gateClient.hostname=%s" $gateHost $domain $domain) }}
+  {{- fail (printf "thunderid.configuration.gateClient.hostname (%s) does not match global.domain (%s). Fix with:\n  --set thunderid.configuration.gateClient.hostname=%s" $gateHost $domain $domain) }}
 {{- end }}
 
 {{- /* The Direct Auth Secret gates the password-check endpoint raven calls. It has to
      be written twice — once for ThunderID's own config file, once for the Secret raven
      reads — because Helm cannot template a values file, and the subchart takes this
      value literally. Diverge and every mail login fails with 401, with nothing in the
-     render to hint why. */}}
+     render to hint why.
+
+     Compared against the value raven's Secret actually gets, not the raw global
+     value: on an upgrade that omits the flag, the Secret keeps the value already in
+     the cluster while ThunderID's copy would silently become empty. */}}
+{{- if .Values.raven.enabled }}
 {{- $chartSecret := ((((.Values.thunderid).configuration).server).security).directAuthSecret | default "" }}
-{{- $globalSecret := ((.Values.global).ravenIdp).directAuthSecret | default "" }}
-{{- if ne $chartSecret $globalSecret }}
-  {{- fail "thunderid.configuration.server.security.directAuthSecret does not match global.ravenIdp.directAuthSecret. ThunderID and raven must agree on the secret gating the password-check endpoint. Pass the same value twice:\n  --set global.ravenIdp.directAuthSecret=$SECRET \\\n  --set thunderid.configuration.server.security.directAuthSecret=$SECRET" }}
+{{- $ravenSecret := include "opengovmail.ravenDirectAuthSecret" . }}
+{{- if ne $chartSecret $ravenSecret }}
+  {{- fail (printf "thunderid.configuration.server.security.directAuthSecret does not match the Direct Auth Secret raven will use. ThunderID and raven must agree on the secret gating the password-check endpoint, or every mail login fails with 401. Pass the same value twice:\n  --set global.ravenIdp.directAuthSecret=$SECRET \\\n  --set thunderid.configuration.server.security.directAuthSecret=$SECRET\nOn an upgrade, reuse the value already in the cluster:\n  kubectl get secret %s -n %s -o jsonpath='{.data.directAuthSecret}' | base64 -d" .Values.global.ravenIdp.secretName .Release.Namespace) }}
+{{- end }}
 {{- end }}
 {{- end }}

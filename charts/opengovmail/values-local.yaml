@@ -8,6 +8,11 @@ global:
   domain: localhost
   tls:
     enabled: false
+  # Local-only credentials, fine to commit. directAuthSecret must equal
+  # thunderid.configuration.server.security.directAuthSecret below.
+  ravenIdp:
+    clientSecret: "localdev-raven-client-secret"
+    directAuthSecret: "localdev-direct-auth-secret"
 
 opendkim:
   enabled: false

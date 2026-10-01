@@ -21,5 +21,8 @@ postfix:
 opendkim:
   enabled: false
 
+raven:
+  enabled: false
+
 thunderid:
   enabled: false
