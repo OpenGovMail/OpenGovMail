@@ -109,11 +109,14 @@ Burning through this with misconfigured charts is a common mistake — staging p
 
 From the repo root. `global.domain` is mandatory, and a first install also needs
 the ThunderID admin password and raven's two ThunderID secrets (see
-[ThunderID identity server](#thunderid-identity-server)):
+[ThunderID identity server](#thunderid-identity-server)).
+
+**First install.** This generates raven's secrets, so run it only once per
+namespace:
 
 ```bash
 DIRECT_AUTH_SECRET=$(openssl rand -hex 32)
-helm upgrade --install opengovmail ./charts/opengovmail \
+helm install opengovmail ./charts/opengovmail \
   --set global.domain=yourdomain.com \
   --set global.thunderAdmin.password=<your-password> \
   --set global.ravenIdp.clientSecret=$(openssl rand -hex 32) \
@@ -124,6 +127,33 @@ helm upgrade --install opengovmail ./charts/opengovmail \
   --namespace opengovmail \
   --create-namespace
 ```
+
+**Upgrades.** Leave `global.ravenIdp.clientSecret` and
+`global.ravenIdp.directAuthSecret` out, so raven's Secret keeps the values already
+in the cluster. Pass ThunderID's copy of the Direct Auth Secret again, read back
+from that Secret. A different client secret fails the render, and a new Direct
+Auth Secret would only reach raven after its pod restarts.
+
+```bash
+DIRECT_AUTH_SECRET=$(kubectl get secret opengovmail-raven-idp -n opengovmail \
+  -o jsonpath='{.data.directAuthSecret}' | base64 -d)
+helm upgrade opengovmail ./charts/opengovmail \
+  --set global.domain=yourdomain.com \
+  --set global.thunderAdmin.password=<your-password> \
+  --set thunderid.configuration.server.security.directAuthSecret=$DIRECT_AUTH_SECRET \
+  --set thunderid.configuration.server.publicUrl=https://yourdomain.com:8090 \
+  --set thunderid.configuration.gateClient.hostname=yourdomain.com \
+  --namespace opengovmail
+```
+
+Keeping these values in a values file you don't commit avoids retyping them.
+
+**Permissions.** The chart reads the cluster while rendering: it gets the
+`opengovmail-thunder-admin` and `opengovmail-raven-idp` Secrets and lists
+Deployments in the release namespace, which it uses to refuse an in-place upgrade
+from the old Thunder chart. The identity running Helm needs `get` on Secrets and
+`list` on Deployments there. The built-in `admin` and `edit` roles include both.
+Without them the render fails.
 
 With a values overlay (e.g. dev — TLS/SASL off, standalone postfix, domain preset):
 
