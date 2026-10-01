@@ -125,13 +125,6 @@ raven:
     # in-cluster SAN; tracked with the Thunder cert-mount work.
     host: ""
     publicHost: ""
-    # Application mail clients authenticate against. Pinned in the bootstrap data
-    # (files/thunderid-bootstrap/), so unlike the old CONSOLE id it is a constant
-    # and never needs reading back out of the database after an install.
-    #
-    # Only the OAuth token path uses it. Raven's administrative reads no longer
-    # involve an application id at all.
-    applicationId: "01900000-0000-7000-8000-0000000000c1"
     # Identity raven uses for its administrative reads (organization units, users,
     # groups). Both credentials come from the Secret templates/raven-idp-secret.yaml
     # creates; see global.ravenIdp for how each is obtained.
@@ -230,8 +223,8 @@ thunderid:
     gateClient:
       hostname: ""
       port: 8090
-    # Must match the app raven validates client tokens against (EMAIL_APP, per the
-    # bootstrap data).
+    # Must match raven.thunder.audience, the audience raven accepts on client OAuth
+    # tokens. No EMAIL_APP client is bootstrapped yet, so nothing issues such tokens.
     jwt:
       audience: "EMAIL_APP"
     # Role names changed in this chart: runtime became runtime_transient, user

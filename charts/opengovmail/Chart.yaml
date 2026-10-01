@@ -37,10 +37,8 @@ dependencies:
   # ThunderID identity server (upstream OCI chart). Mirrors the docker-compose
   # `thunderid`/`thunderid-setup`/`thunderid-db-init` services.
   #
-  # Renamed upstream from asgardeo/thunder. 1.0.0-alpha2 also closed the route
-  # raven used to obtain admin privileges, so it cannot be adopted without the
-  # matching raven release — see charts/PLAN.md.
+  # Renamed upstream from asgardeo/thunder.
   - name: thunderid
-    version: 1.0.0-alpha2
+    version: 1.0.1
     repository: oci://ghcr.io/thunder-id/helm-charts
     condition: thunderid.enabled

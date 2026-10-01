@@ -1,8 +1,7 @@
 {{- if .Values.thunderid.enabled }}
 {{- /*
-ThunderID bootstrap data: the mail domain's organization units, a user type for it,
-raven's service account and the role granting it the system permission, and the
-application mail clients authenticate against. Sourced from
+ThunderID bootstrap data: raven's service account and the role granting it the
+system permission. Sourced from
 charts/opengovmail/files/thunderid-bootstrap/. The setup job mounts it into
 /opt/thunderid/bootstrap and applies it alongside the image's own defaults. Must be a
 hook with weight < the setup-job's -5 so it exists before the setup-job pod starts;

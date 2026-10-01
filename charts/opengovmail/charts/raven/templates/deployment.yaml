@@ -59,12 +59,6 @@ spec:
               value: {{ include "raven.thunderHost" . | quote }}
             - name: THUNDER_PORT
               value: {{ .Values.thunder.port | quote }}
-            {{- /* Only the OAuth token path uses this. Raven's administrative reads
-                 no longer involve an application id at all. */}}
-            {{- if .Values.thunder.applicationId }}
-            - name: APPLICATION_ID
-              value: {{ .Values.thunder.applicationId | quote }}
-            {{- end }}
             {{- /* Raven authenticates to ThunderID as its own machine-to-machine
                  application, not as the admin user: only fullstack and custom apps
                  may start a login flow server-side, so the old route now answers 403.

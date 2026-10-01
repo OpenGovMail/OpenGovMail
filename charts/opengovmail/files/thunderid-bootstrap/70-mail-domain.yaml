@@ -8,10 +8,12 @@ hardcoded to one deployment.
 Upstream's own defaults already create the default organization unit, the Person
 user type, the System resource server, flows, the Administrators group, the
 Administrator role, themes and the Console application, all with fixed ids. This
-file adds raven's service account, the role granting it the system permission,
-and the application mail clients authenticate against — attached to upstream's
-own DEFAULT organization unit and Person user type, same as everything else
+file adds raven's service account and the role granting it the system permission,
+attached to upstream's own DEFAULT organization unit, same as everything else
 upstream ships. Ids in the 0000000000bN range are ours; upstream uses 000000000NN.
+
+Mail clients sign in with a password only. The OAuth client they would use for
+OAUTHBEARER is deliberately left out of this chart for now.
 */ -}}
 {{- $clientSecret := include "opengovmail.ravenClientSecret" . -}}
 # --- Raven's service account -----------------------------------------------------
@@ -53,31 +55,3 @@ permissions:
 assignments:
   - id: 01900000-0000-7000-8000-0000000000b1
     type: app
----
-# --- The application mail clients authenticate against ---------------------------
-# Raven validates the tokens mail clients present against this application's
-# audience. The id is pinned, so unlike the old CONSOLE application it never has to
-# be read back out of the database after an install.
-resource_type: application
-id: 01900000-0000-7000-8000-0000000000c1
-name: Email App
-description: OAuth client for mail clients (IMAP and SMTP)
-type: browser
-ouId: 01900000-0000-7000-8000-000000000001
-url: "{{ "{{" }} .PUBLIC_URL {{ "}}" }}"
-allowedUserTypes:
-  - Person
-inboundAuthConfig:
-  - type: oauth2
-    config:
-      clientId: EMAIL_APP
-      redirectUris:
-        - "http://localhost:8080/callback"
-      grantTypes:
-        - authorization_code
-        - refresh_token
-      responseTypes:
-        - code
-      pkceRequired: true
-      tokenEndpointAuthMethod: none
-      publicClient: true

@@ -75,10 +75,6 @@ thunder:
   publicHost: ""     # default <domain>
   publicPort: 8090
   audience: EMAIL_APP
-  # Application mail clients authenticate against, used only when validating their
-  # OAuth tokens. Pinned by the umbrella's bootstrap data, so it is a constant rather
-  # than something to read back after an install.
-  applicationId: ""
   # Credentials raven uses for its administrative reads: organization units, users
   # and groups. The Secret carries two keys, clientSecret and directAuthSecret, and
   # is created by the umbrella (templates/raven-idp-secret.yaml).
