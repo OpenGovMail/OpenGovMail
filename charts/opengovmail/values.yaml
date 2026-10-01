@@ -31,20 +31,24 @@ global:
   # Raven no longer logs in as the admin user: ThunderID only lets fullstack and
   # custom applications start a login flow server-side, and the Console app is a
   # browser app, so that route now answers 403. Raven authenticates as its own
-  # machine-to-machine application instead. See charts/PLAN.md.
+  # machine-to-machine application instead.
   #
-  # clientSecret: generated on first install and reused thereafter, exactly like
-  # the admin password above. The umbrella owns both ends — the bootstrap data
-  # that defines the application, and the Secret raven reads — so nothing has to
-  # be supplied by hand.
+  # clientSecret: MUST be supplied on a first install. It has to appear in both
+  # the bootstrap data that registers raven's application and the Secret raven
+  # reads, and two templates cannot share a generated value. Later upgrades reuse
+  # the value already in the cluster, so leave it empty then. Supplying a
+  # different value on upgrade fails the render: the setup job that registered
+  # the application only runs on install, so the change would never reach it.
+  #   --set global.ravenIdp.clientSecret=$(openssl rand -hex 32)
   #
-  # directAuthSecret: MUST be supplied. It gates ThunderID's password-check
-  # endpoint, and unlike the client secret it cannot be generated here: it has to
-  # appear as a literal in the vendored subchart's own values, which Helm cannot
-  # template. Set the same value in both places, or the render fails with a
-  # message telling you so:
+  # directAuthSecret: MUST be supplied on a first install. It gates ThunderID's
+  # password-check endpoint, and it has to appear as a literal in the vendored
+  # subchart's own values, which Helm cannot template. Set the same value in both
+  # places, or the render fails with a message telling you so:
   #   --set global.ravenIdp.directAuthSecret=$SECRET \
   #   --set thunderid.configuration.server.security.directAuthSecret=$SECRET
+  # On upgrades the ThunderID copy must be passed again (raven's copy is reused
+  # from the cluster); templates/domain-guard.yaml fails the render otherwise.
   ravenIdp:
     secretName: opengovmail-raven-idp
     clientId: RAVEN_SYSTEM

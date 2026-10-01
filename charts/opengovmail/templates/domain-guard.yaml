@@ -14,10 +14,18 @@ This mirrors templates/thunder-admin-secret.yaml, which already fails the render
 when the three hand-written admin Secret-name literals diverge. Same idea, same
 reason: a literal that MUST track a derived value is guarded, not hoped over.
 
-Delete this file once the values it guards can be derived — the thunderid chart
-migration is where that becomes possible (see charts/PLAN.md).
+Delete this file once the values it guards can be derived.
 */}}
 {{- if .Values.thunderid.enabled }}
+{{- /* ThunderID's bootstrap, including raven's service account, is applied only
+     by its install-time setup job, and nothing migrates a Thunder 0.x database.
+     Upgrading a release that still runs the old asgardeo Thunder chart would leave
+     raven with no identity to authenticate as, so require a fresh namespace. */}}
+{{- range ((lookup "apps/v1" "Deployment" .Release.Namespace "").items | default list) }}
+  {{- if eq (index (.metadata.labels | default dict) "app.kubernetes.io/name" | default "") "thunder" }}
+    {{- fail (printf "Deployment %s in namespace %s runs the old Thunder chart. ThunderID cannot be upgraded in place: its setup job, which registers raven's service account, only runs on a fresh install, and there is no migration from the Thunder 0.x database. Install into a new namespace instead." .metadata.name $.Release.Namespace) }}
+  {{- end }}
+{{- end }}
 {{- $domain := include "opengovmail.domain" . }}
 {{- $expectedUrl := printf "https://%s:8090" $domain }}
 
