@@ -7,9 +7,9 @@ charts/opengovmail/files/thunderid-bootstrap/. The setup job mounts it into
 hook with weight < the setup-job's -5 so it exists before the setup-job pod starts;
 a plain resource would be created after the hook and the job would fail.
 
-Rendered through `tpl` rather than copied verbatim, because raven's client secret is
-generated at render time and has to appear both here — where the application is
-defined — and in the Secret raven reads.
+Rendered through `tpl` rather than copied verbatim, so the bootstrap data can use the
+umbrella's values (raven's client id). Secrets are never rendered into it: raven's
+client secret reaches the setup job through thunderid.setup.secretEnv instead.
 
 The name is read from thunder.bootstrap.configMap.name — the same value the subchart
 uses to mount it — so the two cannot disagree. Do NOT hardcode a name here: values

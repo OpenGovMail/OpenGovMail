@@ -263,6 +263,16 @@ thunderid:
     # Without this its log is gone the moment it finishes, and a failed bootstrap
     # has to be diagnosed from the database. Turn off once this is stable.
     preserveJob: true
+    # Raven's client secret, handed to the setup job from raven's Secret rather than
+    # written into the bootstrap ConfigMap. ThunderID's bootstrap fills the
+    # {{ .RAVEN_CLIENT_SECRET }} placeholder in files/thunderid-bootstrap/ from this
+    # variable. secretName must equal global.ravenIdp.secretName;
+    # templates/raven-idp-secret.yaml fails the render otherwise.
+    secretEnv:
+      - name: RAVEN_CLIENT_SECRET
+        secretName: opengovmail-raven-idp
+        secretKey: clientSecret
+        optional: false
     # Structured admin block, replacing the environment-variable workaround. The
     # password comes from the Secret the umbrella creates
     # (templates/thunder-admin-secret.yaml), which raven no longer reads but the

@@ -1,9 +1,15 @@
 {{- /*
 This umbrella's additions to ThunderID's shipped default resources.
 
-Rendered through `tpl` by templates/thunder-bootstrap-configmap.yaml, so raven's
-client secret comes from the Secret the umbrella generates. Nothing here is
-hardcoded to one deployment.
+Rendered through `tpl` by templates/thunder-bootstrap-configmap.yaml, so values such
+as raven's client id come from the umbrella's values. Nothing here is hardcoded to
+one deployment.
+
+Raven's client secret is deliberately NOT rendered here: a ConfigMap is readable by
+anyone with the namespace's `view` role, and this credential carries the system
+permission. It stays a `{{ .RAVEN_CLIENT_SECRET }}` placeholder, which ThunderID's
+bootstrap fills from the setup job's environment. thunderid.setup.secretEnv maps that
+variable to the clientSecret key of raven's Secret (templates/raven-idp-secret.yaml).
 
 Upstream's own defaults already create the default organization unit, the Person
 user type, the System resource server, flows, the Administrators group, the
@@ -15,7 +21,6 @@ upstream ships. Ids in the 0000000000bN range are ours; upstream uses 000000000N
 Mail clients sign in with a password only. The OAuth client they would use for
 OAUTHBEARER is deliberately left out of this chart for now.
 */ -}}
-{{- $clientSecret := include "opengovmail.ravenClientSecret" . -}}
 # --- Raven's service account -----------------------------------------------------
 # Raven is a background service, so it authenticates as a machine-to-machine client.
 # It used to drive the interactive login flow as the admin user, which ThunderID now
@@ -31,7 +36,7 @@ inboundAuthConfig:
   - type: oauth2
     config:
       clientId: {{ .Values.global.ravenIdp.clientId }}
-      clientSecret: {{ $clientSecret | quote }}
+      clientSecret: "{{ "{{" }} .RAVEN_CLIENT_SECRET {{ "}}" }}"
       grantTypes:
         - client_credentials
       tokenEndpointAuthMethod: client_secret_basic
