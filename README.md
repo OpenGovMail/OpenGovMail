@@ -34,7 +34,7 @@ OpenGovMail offers powerful capabilities that set it apart from traditional emai
 | **Built-In Security Protection** – Enterprise-grade spam filtering and malware scanning | Completed |
 | **Smart Attachment Storage** – Separate object storage for improved performance | Completed |
 | **Effortless Group Emailing** – Organize users into groups for simplified communication | Completed |
-| **Professional Role-Based Identity** – Authoritative organizational email addresses | In Progress |
+| **Professional Role-Based Identity** – Authoritative organizational email addresses | Completed |
 | **Identity Provider Integration** – Seamless integration with existing IdP systems | In Progress |
 | **Disaster-Proof Backups** – Configurable backup strategies for data protection | Planned |
 | **Email Workflow Automation** – Route emails through predefined workflows with tracking | Planned |
