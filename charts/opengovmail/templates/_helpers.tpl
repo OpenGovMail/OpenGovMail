@@ -71,3 +71,50 @@ Issuer reference helper
 name: {{ .Values.global.tls.issuer }}
 kind: ClusterIssuer
 {{- end }}
+{{/*
+Raven's ThunderID credentials, resolved identically wherever they are needed.
+
+Both are needed in two templates at once — the Secret raven reads, and either the
+bootstrap data that defines raven's application or the subchart's own config — and
+separate templates cannot share a generated value. So each resolves the same way:
+an explicit value wins, otherwise whatever is already in the cluster is reused,
+otherwise the render fails with instructions rather than inventing a value that
+only one of the two consumers would see.
+*/}}
+{{- define "opengovmail.ravenClientSecret" -}}
+{{- $idp := .Values.global.ravenIdp | default dict -}}
+{{- $existing := lookup "v1" "Secret" .Release.Namespace ($idp.secretName | default "") -}}
+{{- $data := dict -}}
+{{- if $existing }}{{- $data = $existing.data | default dict -}}{{- end -}}
+{{- $current := "" -}}
+{{- if index $data "clientSecret" }}{{- $current = index $data "clientSecret" | b64dec -}}{{- end -}}
+{{- if $idp.clientSecret -}}
+{{- /* ThunderID's setup job only runs on install, so a changed value would reach
+     raven's Secret but never the registered application, and raven's token
+     requests would start failing. Refuse it instead. */ -}}
+{{- if and $current (ne $current $idp.clientSecret) -}}
+{{- fail (printf "global.ravenIdp.clientSecret differs from the value already in Secret %s. ThunderID's setup job only runs on install, so the new value would never reach raven's registered application and raven could no longer authenticate. Leave global.ravenIdp.clientSecret empty to keep the current value. To rotate it, change the secret on the Raven System application in ThunderID first, then delete Secret %s and upgrade with the new value." $idp.secretName $idp.secretName) -}}
+{{- end -}}
+{{- $idp.clientSecret -}}
+{{- else if $current -}}
+{{- $current -}}
+{{- else -}}
+{{- fail "global.ravenIdp.clientSecret is required on a first install: it authenticates raven to ThunderID, and it has to be written into both raven's Secret and the bootstrap data that defines its application, which cannot share a generated value. Later installs reuse the value already in the cluster. Generate one and pass it:\n  --set global.ravenIdp.clientSecret=$(openssl rand -hex 32)" -}}
+{{- end -}}
+{{- end }}
+
+{{- define "opengovmail.ravenDirectAuthSecret" -}}
+{{- $idp := .Values.global.ravenIdp | default dict -}}
+{{- if $idp.directAuthSecret -}}
+{{- $idp.directAuthSecret -}}
+{{- else -}}
+{{- $existing := lookup "v1" "Secret" .Release.Namespace ($idp.secretName | default "") -}}
+{{- $data := dict -}}
+{{- if $existing }}{{- $data = $existing.data | default dict -}}{{- end -}}
+{{- if index $data "directAuthSecret" -}}
+{{- index $data "directAuthSecret" | b64dec -}}
+{{- else -}}
+{{- fail "global.ravenIdp.directAuthSecret is required on a first install: it gates ThunderID's password-check endpoint, and without it every mail login fails with 401. It must be passed twice, because Helm cannot template the vendored subchart's values:\n  --set global.ravenIdp.directAuthSecret=$SECRET \\\n  --set thunderid.configuration.server.security.directAuthSecret=$SECRET" -}}
+{{- end -}}
+{{- end -}}
+{{- end }}

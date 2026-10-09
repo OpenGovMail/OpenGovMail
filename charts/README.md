@@ -107,14 +107,53 @@ Burning through this with misconfigured charts is a common mistake — staging p
 
 ## Step 4 — Install OpenGovMail
 
-From the repo root (`global.domain` is mandatory — set it in `values.yaml` or via `--set`):
+From the repo root. `global.domain` is mandatory, and a first install also needs
+the ThunderID admin password and raven's two ThunderID secrets (see
+[ThunderID identity server](#thunderid-identity-server)).
+
+**First install.** This generates raven's secrets, so run it only once per
+namespace:
 
 ```bash
-helm upgrade --install opengovmail ./charts/opengovmail \
+DIRECT_AUTH_SECRET=$(openssl rand -hex 32)
+helm install opengovmail ./charts/opengovmail \
   --set global.domain=yourdomain.com \
+  --set global.thunderAdmin.password=<your-password> \
+  --set global.ravenIdp.clientSecret=$(openssl rand -hex 32) \
+  --set global.ravenIdp.directAuthSecret=$DIRECT_AUTH_SECRET \
+  --set thunderid.configuration.server.security.directAuthSecret=$DIRECT_AUTH_SECRET \
+  --set thunderid.configuration.server.publicUrl=https://yourdomain.com:8090 \
+  --set thunderid.configuration.gateClient.hostname=yourdomain.com \
   --namespace opengovmail \
   --create-namespace
 ```
+
+**Upgrades.** Leave `global.ravenIdp.clientSecret` and
+`global.ravenIdp.directAuthSecret` out, so raven's Secret keeps the values already
+in the cluster. Pass ThunderID's copy of the Direct Auth Secret again, read back
+from that Secret. A different client secret fails the render, and a new Direct
+Auth Secret would only reach raven after its pod restarts.
+
+```bash
+DIRECT_AUTH_SECRET=$(kubectl get secret opengovmail-raven-idp -n opengovmail \
+  -o jsonpath='{.data.directAuthSecret}' | base64 -d)
+helm upgrade opengovmail ./charts/opengovmail \
+  --set global.domain=yourdomain.com \
+  --set global.thunderAdmin.password=<your-password> \
+  --set thunderid.configuration.server.security.directAuthSecret=$DIRECT_AUTH_SECRET \
+  --set thunderid.configuration.server.publicUrl=https://yourdomain.com:8090 \
+  --set thunderid.configuration.gateClient.hostname=yourdomain.com \
+  --namespace opengovmail
+```
+
+Keeping these values in a values file you don't commit avoids retyping them.
+
+**Permissions.** The chart reads the cluster while rendering: it gets the
+`opengovmail-thunder-admin` and `opengovmail-raven-idp` Secrets and lists
+Deployments in the release namespace, which it uses to refuse an in-place upgrade
+from the old Thunder chart. The identity running Helm needs `get` on Secrets and
+`list` on Deployments there. The built-in `admin` and `edit` roles include both.
+Without them the render fails.
 
 With a values overlay (e.g. dev — TLS/SASL off, standalone postfix, domain preset):
 
@@ -139,77 +178,49 @@ kubectl describe certificate <name> -n opengovmail
 ```
 ---
 
-## Thunder identity server
+## ThunderID identity server
 
-Thunder is pulled in as an upstream OCI dependency
-(`oci://ghcr.io/asgardeo/helm-charts/thunder`, version `0.32.0`) and configured
-under the `thunder:` key in the umbrella values. The defaults in
-[opengovmail/values.yaml](opengovmail/values.yaml) reproduce the docker-compose `thunder`
-setup: the `0.32.0` image, a shared SQLite database seeded from the image (via an
-init container, replacing the compose `thunder-db-init`), a one-time setup job
-(compose `thunder-setup`), a single pod, and the bootstrap scripts from
-[scripts/thunder](../scripts/thunder).
+ThunderID is pulled in as an upstream OCI dependency
+(`oci://ghcr.io/thunder-id/helm-charts/thunderid`, see
+[opengovmail/Chart.yaml](opengovmail/Chart.yaml) for the version) and configured under
+the `thunderid:` key in the umbrella values. It runs as a single pod on SQLite, with
+a one-time setup job that bootstraps the database. Run
+`helm dependency update ./charts/opengovmail` before the first install.
 
-### Bootstrap ConfigMap (required before install)
+### Bootstrap
 
-Thunder's setup job runs as a Helm **pre-install hook**, so the bootstrap
-ConfigMap it references must already exist in the namespace. Create it from the
-canonical scripts (they are not duplicated into the chart):
+The setup job applies ThunderID's own defaults (the `default` organization unit,
+the `Person` user type, flows, the Administrator role and the console app), then
+the umbrella's additions from
+[opengovmail/files/thunderid-bootstrap/](opengovmail/files/thunderid-bootstrap/):
 
-```bash
-scripts/thunder/create-bootstrap-configmap.sh opengovmail          # <namespace> [configmap-name]
-```
+- **Raven System**: the machine-to-machine application raven authenticates as
+- **Raven System Role**: grants that application the `system` permission it needs
+  to read organization units, users and groups
 
-This mounts `01-default-resources.sh` and `02-sample-resources.sh` via `subPath`,
-preserving the image's default bootstrap scripts (including `common.sh`, which
-`01`/`02` source). Re-run it to push script changes; it is idempotent.
+The umbrella renders these into the `thunder-bootstrap` ConfigMap itself. Nothing
+needs to be created by hand before installing.
 
-### Admin credentials (set before install)
+The setup job runs **on install only**. Changing the bootstrap data, or moving from
+the old asgardeo Thunder chart, means installing into a fresh namespace. The render
+fails if the namespace still runs the old Thunder chart.
 
-The admin **username** is `admin` (in `thunder.setup.env`). The **password**
-comes from the `opengovmail-thunder-admin` Secret, which the umbrella chart
-itself creates (`templates/thunder-admin-secret.yaml`) — set it explicitly
-via `global.thunderAdmin.password` in a values file or `--set` before
-installing:
+Mail clients sign in with a password. OAuth sign-in for mail clients is not
+bootstrapped yet.
 
-```yaml
-global:
-  thunderAdmin:
-    password: "<your-password>"
-```
+### Credentials
 
-Set it explicitly rather than leaving it blank: if unset, the chart
-auto-generates a password using `lookup` against the live cluster at render
-time, which only works for a real `helm upgrade --install`. A
-`helm template | kubectl apply` (GitOps) render can't see the cluster and
-would mint a fresh random password on every render, silently rotating the
-credential. Setting the password explicitly avoids this.
+| Credential | Where it comes from |
+|---|---|
+| Admin password (`opengovmail-thunder-admin`, username `admin`) | **Set it explicitly** with `global.thunderAdmin.password`. If left blank, the chart generates one using `lookup`, which only works for a real `helm upgrade --install`. A `helm template \| kubectl apply` (GitOps) render can't see the cluster and would mint a new password on every render. Read a generated value with `kubectl get secret opengovmail-thunder-admin -n opengovmail -o jsonpath='{.data.password}' \| base64 -d` |
+| `global.ravenIdp.clientSecret` | **Supply on first install.** Reused from the cluster afterwards. Supplying a different value later fails the render, because the setup job never re-registers it |
+| `global.ravenIdp.directAuthSecret` | **Supply on first install**, with the same value in `thunderid.configuration.server.security.directAuthSecret`. On upgrades, pass the ThunderID copy again: `kubectl get secret opengovmail-raven-idp -n opengovmail -o jsonpath='{.data.directAuthSecret}' \| base64 -d` |
 
-If you do leave it blank, the generated value can still be read back with:
+### Networking
 
-```bash
-kubectl get secret opengovmail-thunder-admin -n opengovmail \
-  -o jsonpath='{.data.password}' | base64 -d
-```
-
-### Install
-
-```bash
-# 1. Bootstrap ConfigMap first (pre-install hook dependency)
-scripts/thunder/create-bootstrap-configmap.sh opengovmail
-
-# 2. Install the umbrella (Thunder enabled by default)
-helm dependency update ./charts/opengovmail
-helm upgrade --install opengovmail ./charts/opengovmail \
-  --set global.domain=yourdomain.com \
-  --set global.thunderAdmin.password=<your-password> \
-  --namespace opengovmail --create-namespace
-```
-
-Thunder is reached in-cluster on its Service at port `8090` (e.g. raven ->
-`thunder:8090`), matching the compose network. External ingress is disabled by
-default; enable `thunder.ingress` and point it at your domain if you need the
-console/gate UIs exposed. The dev overlay
-([values-dev.yaml](opengovmail/values-dev.yaml)) disables Thunder for a postfix-only
-bring-up.
+Raven reaches ThunderID on port `8090` using the public name, which matches the JWT
+issuer. [opengovmail/templates/thunder-lb.yaml](opengovmail/templates/thunder-lb.yaml)
+exposes `8090` on the node for the console and gate UIs. `thunderid.ingress` is
+disabled. The dev overlay ([values-dev.yaml](opengovmail/values-dev.yaml)) disables
+ThunderID and raven for a postfix-only bring-up.
 ---
