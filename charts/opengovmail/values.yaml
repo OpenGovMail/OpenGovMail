@@ -223,6 +223,10 @@ thunderid:
       # straight into its config file.
       security:
         directAuthSecret: ""
+    consoleClient:
+      # Bootstrap registers the System resource server as localhost, whatever the
+      # public URL. Empty derives publicUrl and login fails with invalid_target.
+      resourceIdentifier: "https://localhost:8090/mcp"
     # gate UI is served by ThunderID on :8090 (via the thunder-lb), not :443.
     gateClient:
       hostname: ""

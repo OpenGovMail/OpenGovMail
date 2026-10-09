@@ -9,7 +9,7 @@ image:
   # Published under OpenGovMail, where the repository now lives. The other silver
   # images are still under lsflk.
   repository: ghcr.io/opengovmail/raven
-  tag: ""            # defaults to appVersion (":latest")
+  tag: "dev"         # no :latest published; empty falls back to appVersion and fails to pull
   pullPolicy: Always # floating tag; pin + IfNotPresent in prod
 
 imagePullSecrets: []
