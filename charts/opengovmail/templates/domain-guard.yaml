@@ -56,3 +56,20 @@ Delete this file once the values it guards can be derived.
 {{- end }}
 {{- end }}
 {{- end }}
+
+{{- /* Nextcloud's Secret names are written twice: once by our templates, once in the
+     vendored chart's values, which Helm will not template. Check rather than hope. */}}
+{{- if .Values.nextcloud.enabled }}
+{{- $pgSecret := .Values.nextcloudDeps.postgres.secretName }}
+{{- $ncPgSecret := ((((.Values.nextcloud).externalDatabase).existingSecret).secretName) }}
+{{- if and $ncPgSecret (ne $ncPgSecret $pgSecret) }}
+  {{- fail (printf "nextcloud.externalDatabase.existingSecret.secretName (%s) must equal nextcloudDeps.postgres.secretName (%s), or Nextcloud reads a Secret that does not exist." $ncPgSecret $pgSecret) }}
+{{- end }}
+{{- $idpSecret := .Values.nextcloudDeps.idpSecretName }}
+{{- range (((.Values.nextcloud).nextcloud).extraEnv | default list) }}
+  {{- $ref := ((.valueFrom).secretKeyRef).name | default "" }}
+  {{- if and $ref (hasPrefix "OIDC_" (.name | default "")) (ne $ref $idpSecret) }}
+    {{- fail (printf "nextcloud.nextcloud.extraEnv %s reads Secret %s, but nextcloudDeps.idpSecretName is %s." .name $ref $idpSecret) }}
+  {{- end }}
+{{- end }}
+{{- end }}

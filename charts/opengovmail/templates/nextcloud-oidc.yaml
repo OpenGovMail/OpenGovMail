@@ -17,7 +17,7 @@ Idempotent: it checks for the client id before creating it, so an upgrade is a n
 apiVersion: v1
 kind: Secret
 metadata:
-  name: {{ .Release.Name }}-nextcloud-idp
+  name: {{ .Values.nextcloudDeps.idpSecretName }}
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "opengovmail.labels" . | nindent 4 }}
@@ -63,16 +63,20 @@ spec:
               value: {{ $thunderUrl | quote }}
             - name: NC_CLIENT_ID
               value: {{ $clientId | quote }}
-            - name: OU_ID
-              value: {{ .Values.nextcloudDeps.registerJob.ouId | quote }}
-            - name: AUTH_FLOW_ID
-              value: {{ .Values.nextcloudDeps.registerJob.authFlowId | quote }}
+            - name: OU_HANDLE
+              value: {{ .Values.nextcloudDeps.registerJob.ouHandle | quote }}
+            - name: AUTH_FLOW_HANDLE
+              value: {{ .Values.nextcloudDeps.registerJob.authFlowHandle | quote }}
+            - name: ALLOWED_USER_TYPES
+              value: {{ .Values.nextcloudDeps.registerJob.allowedUserTypes | toJson | quote }}
+            - name: RESOURCE
+              value: {{ .Values.nextcloudDeps.registerJob.resourceIdentifier | quote }}
             - name: NC_REDIRECT
               value: {{ printf "https://%s/apps/user_oidc/code" $host | quote }}
             - name: NC_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Release.Name }}-nextcloud-idp
+                  name: {{ .Values.nextcloudDeps.idpSecretName }}
                   key: clientSecret
             - name: RAVEN_CLIENT_ID
               value: {{ (((.Values.global).ravenIdp).clientId) | default "RAVEN_SYSTEM" | quote }}
@@ -83,86 +87,120 @@ spec:
                   key: clientSecret
           resources:
             {{- toYaml .Values.nextcloudDeps.registerJob.resources | nindent 12 }}
-          command: ["/bin/sh", "-c"]
+          command: ["python3", "-c"]
           args:
             - |
-              set -eu
-              echo "waiting for ThunderID"
-              until curl -sf "$THUNDER_URL/.well-known/openid-configuration" >/dev/null; do sleep 5; done
+              import json, os, sys, time, urllib.error, urllib.parse, urllib.request
+              from base64 import b64encode
 
-              TOKEN=$(curl -sf -u "$RAVEN_CLIENT_ID:$RAVEN_CLIENT_SECRET" \
-                -X POST "$THUNDER_URL/oauth2/token" \
-                -d grant_type=client_credentials \
-                -d 'resource=https://localhost:8090/mcp' \
-                -d scope=system \
-                | sed -E 's/.*"access_token":"([^"]+)".*/\1/')
-              [ -n "$TOKEN" ] || { echo "no token from ThunderID"; exit 1; }
+              BASE = os.environ["THUNDER_URL"]
 
-              # Already registered? The setup job never re-runs, so this must not duplicate.
-              # Matched on name, which is what ThunderID enforces uniqueness on.
-              if curl -sf -H "Authorization: Bearer $TOKEN" "$THUNDER_URL/applications" \
-                   | grep -q '"name":"Nextcloud"'; then
-                echo "Nextcloud application already registered"
-                exit 0
-              fi
+              def call(path, token=None, data=None, method=None, basic=None):
+                  req = urllib.request.Request(BASE + path, method=method)
+                  if data is not None:
+                      req.data = data if isinstance(data, bytes) else json.dumps(data).encode()
+                      req.add_header("Content-Type", "application/json")
+                  if token:
+                      req.add_header("Authorization", "Bearer " + token)
+                  if basic:
+                      req.add_header("Authorization", "Basic " + b64encode(basic.encode()).decode())
+                  with urllib.request.urlopen(req, timeout=30) as r:
+                      body = r.read()
+                      return r.status, (json.loads(body) if body else {})
 
-              echo "registering $NC_CLIENT_ID"
-              # camelCase. The REST API and the declarative bootstrap files agree on
-              # this; docs/Thunder-API-Consumer-Contract-Guide-for-Silver.md section 13
-              # documents snake_case and is out of date for ThunderID 1.0.x.
-              # ouId and authFlowId are ThunderID's shipped defaults.
-              # Without scopeClaims and the token userAttributes, ThunderID releases
-              # no name claim and every account arrives with a blank display name.
-              # client_secret_post, not basic: user_oidc sends credentials in the
-              # body, and basic fails with "not allowed to use the specified
-              # authentication method" only at the token exchange, after sign-in.
-              cat >/tmp/app.json <<JSON
-              {
-                "name": "Nextcloud",
-                "description": "OpenGovMail collaboration suite",
-                "ouId": "$OU_ID",
-                "type": "browser",
-                "authFlowId": "$AUTH_FLOW_ID",
-                "isRegistrationFlowEnabled": false,
-                "allowedUserTypes": ["Person"],
-                "userAttributes": ["given_name","family_name","email","groups","name","ouId"],
-                "inboundAuthConfig": [{
-                  "type": "oauth2",
-                  "config": {
-                    "clientId": "$NC_CLIENT_ID",
-                    "clientSecret": "$NC_CLIENT_SECRET",
-                    "redirectUris": ["$NC_REDIRECT"],
-                    "grantTypes": ["authorization_code","refresh_token"],
-                    "responseTypes": ["code"],
-                    "pkceRequired": false,
-                    "publicClient": false,
-                    "tokenEndpointAuthMethod": "client_secret_post",
-                    "scopes": ["openid","profile","email","group"],
-                    "scopeClaims": {
-                      "profile": ["name","given_name","family_name"],
-                      "email": ["email","email_verified"],
-                      "group": ["groups"]
-                    },
-                    "token": {
-                      "idToken": {"userAttributes": ["name","given_name","family_name","email","groups"], "validityPeriod": 3600},
-                      "accessToken": {"userAttributes": ["name","email","groups"], "validityPeriod": 3600}
-                    }
-                  }
-                }]
+              # ThunderID can still be starting when this hook runs.
+              for _ in range(60):
+                  try:
+                      call("/.well-known/openid-configuration")
+                      break
+                  except Exception:
+                      time.sleep(5)
+              else:
+                  sys.exit("ThunderID never became reachable")
+
+              form = urllib.parse.urlencode({
+                  "grant_type": "client_credentials",
+                  "resource": os.environ["RESOURCE"],
+                  "scope": "system",
+              }).encode()
+              req = urllib.request.Request(BASE + "/oauth2/token", data=form, method="POST")
+              req.add_header("Authorization", "Basic " + b64encode(
+                  f"{os.environ['RAVEN_CLIENT_ID']}:{os.environ['RAVEN_CLIENT_SECRET']}".encode()).decode())
+              with urllib.request.urlopen(req, timeout=30) as r:
+                  token = json.loads(r.read())["access_token"]
+
+              # Resolve ids from handles. The UUIDs are install data, the handles are not.
+              # Neither endpoint filters server side, so both are matched here.
+              _, ous = call("/organization-units", token)
+              ou_handle = os.environ["OU_HANDLE"]
+              ou = next((o for o in ous.get("organizationUnits", []) if o.get("handle") == ou_handle), None)
+              if not ou:
+                  sys.exit(f"no organization unit with handle {ou_handle}")
+
+              _, flows = call("/flows", token)
+              want = os.environ["AUTH_FLOW_HANDLE"]
+              flow_id = None
+              for f in flows.get("flows", []):
+                  if f.get("handle") != want:
+                      continue
+                  # flowType is only on the individual resource, not the list.
+                  _, full = call("/flows/" + f["id"], token)
+                  if full.get("flowType") == "AUTHENTICATION":
+                      flow_id = f["id"]
+                      break
+              if not flow_id:
+                  sys.exit(f"no AUTHENTICATION flow with handle {want}")
+
+              _, apps = call("/applications", token)
+              if any(a.get("name") == "Nextcloud" for a in apps.get("applications", [])):
+                  print("Nextcloud application already registered")
+                  sys.exit(0)
+
+              app = {
+                  "name": "Nextcloud",
+                  "description": "OpenGovMail collaboration suite",
+                  "ouId": ou["id"],
+                  "type": "browser",
+                  "authFlowId": flow_id,
+                  "isRegistrationFlowEnabled": False,
+                  "allowedUserTypes": json.loads(os.environ["ALLOWED_USER_TYPES"]),
+                  "userAttributes": ["given_name", "family_name", "email", "groups", "name", "ouId"],
+                  "inboundAuthConfig": [{
+                      "type": "oauth2",
+                      "config": {
+                          "clientId": os.environ["NC_CLIENT_ID"],
+                          "clientSecret": os.environ["NC_CLIENT_SECRET"],
+                          "redirectUris": [os.environ["NC_REDIRECT"]],
+                          "grantTypes": ["authorization_code", "refresh_token"],
+                          "responseTypes": ["code"],
+                          "pkceRequired": False,
+                          "publicClient": False,
+                          # user_oidc sends credentials in the body; basic fails only at
+                          # the token exchange, after the user has already signed in.
+                          "tokenEndpointAuthMethod": "client_secret_post",
+                          "scopes": ["openid", "profile", "email", "group"],
+                          # Without these ThunderID releases no name claim and every
+                          # account arrives with a blank display name.
+                          "scopeClaims": {
+                              "profile": ["name", "given_name", "family_name"],
+                              "email": ["email", "email_verified"],
+                              "group": ["groups"],
+                          },
+                          "token": {
+                              "idToken": {"userAttributes": ["name", "given_name", "family_name", "email", "groups"], "validityPeriod": 3600},
+                              "accessToken": {"userAttributes": ["name", "email", "groups"], "validityPeriod": 3600},
+                          },
+                      },
+                  }],
               }
-              JSON
-              code=$(curl -s -o /tmp/out.json -w '%{http_code}' \
-                -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-                -X POST "$THUNDER_URL/applications" --data @/tmp/app.json)
-              echo "status=$code"
-              # 409 means another replica won the race; both are success here.
-              # A concurrent run can win the race; ThunderID reports that as 400 with
-              # application_already_exists, not 409, so match on the body too.
-              case "$code" in
-                2*|409) echo "registered"; exit 0 ;;
-                *) if grep -q "application_already_exists" /tmp/out.json; then
-                     echo "already registered"; exit 0
-                   fi
-                   cat /tmp/out.json; exit 1 ;;
-              esac
+              try:
+                  status, _ = call("/applications", token, data=app, method="POST")
+                  print("registered", status)
+              except urllib.error.HTTPError as e:
+                  body = e.read().decode()
+                  # A concurrent run reports the clash as 400, not 409.
+                  if "already_exists" in body:
+                      print("already registered")
+                      sys.exit(0)
+                  sys.exit(f"{e.code}: {body}")
 {{- end }}

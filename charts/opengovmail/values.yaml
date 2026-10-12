@@ -343,13 +343,13 @@ nextcloud:
     extraEnv:
       - name: OIDC_CLIENT_ID
         valueFrom:
-          secretKeyRef: {name: opengovmail-nextcloud-idp, key: clientId}
+          secretKeyRef: {name: nextcloud-idp, key: clientId}
       - name: OIDC_CLIENT_SECRET
         valueFrom:
-          secretKeyRef: {name: opengovmail-nextcloud-idp, key: clientSecret}
+          secretKeyRef: {name: nextcloud-idp, key: clientSecret}
       - name: OIDC_DISCOVERY
         valueFrom:
-          secretKeyRef: {name: opengovmail-nextcloud-idp, key: discoveryUri}
+          secretKeyRef: {name: nextcloud-idp, key: discoveryUri}
 
     # Runs once, when the image first installs Nextcloud. Provider rows live in the
     # database, so a restart does not need to repeat it.
@@ -385,8 +385,9 @@ nextcloud:
     database: nextcloud
     existingSecret:
       enabled: true
-      # Literal because values files cannot be templated; guarded in domain-guard.yaml.
-      secretName: opengovmail-nextcloud-postgres
+      # Release-independent, like the service names. Must equal
+      # nextcloudDeps.postgres.secretName; domain-guard.yaml fails the render otherwise.
+      secretName: nextcloud-postgres
       usernameKey: username
       passwordKey: password
 
@@ -413,8 +414,12 @@ nextcloud:
 # Postgres and Redis for Nextcloud, rendered by templates/nextcloud-*.yaml.
 # Separate from the nextcloud block because that one is the upstream chart's scope.
 nextcloudDeps:
+  # Release-independent so nothing assumes the release is called opengovmail.
+  idpSecretName: nextcloud-idp
+
   postgres:
     serviceName: nextcloud-postgres
+    secretName: nextcloud-postgres
     user: nextcloud
     database: nextcloud
     # Empty derives from the release name; see opengovmail.nextcloudDbPassword.
@@ -435,13 +440,19 @@ nextcloudDeps:
         memory: 512Mi
   # Registers Nextcloud as an OAuth client in ThunderID. Needs only curl and sh.
   registerJob:
-    # ThunderID's shipped default OU and authentication flow, fixed ids in its
-    # bootstrap data rather than anything this chart creates.
-    ouId: "01900000-0000-7000-8000-000000000001"
-    authFlowId: "01900000-0000-7000-8000-000000000068"
+    # Handles, not UUIDs: the ids are install data, the handles are stable names.
+    # The job resolves them at runtime.
+    ouHandle: default
+    authFlowHandle: default-flow
+    # Which ThunderID user types may sign in. Types belong to one OU, so adding an
+    # OU means adding its type here.
+    allowedUserTypes: ["Person"]
+    # Audience raven's token is minted for; registered as localhost by the bootstrap
+    # whatever the public URL, same as raven.thunder.resourceIdentifier.
+    resourceIdentifier: "https://localhost:8090/mcp"
     image:
-      repository: curlimages/curl
-      tag: "8.11.1"
+      repository: python
+      tag: "3.12-alpine"
     resources:
       requests: {cpu: 25m, memory: 32Mi}
       limits: {cpu: 200m, memory: 64Mi}
