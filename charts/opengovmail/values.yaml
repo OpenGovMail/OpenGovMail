@@ -356,6 +356,8 @@ nextcloud:
     hooks:
       post-installation: |-
         php occ app:install user_oidc || php occ app:enable user_oidc
+        # Phase 4: shared calendar. Not in the base image, so install it here.
+        php occ app:install calendar || php occ app:enable calendar
         php occ user_oidc:provider ThunderID \
           --clientid="$OIDC_CLIENT_ID" \
           --clientsecret="$OIDC_CLIENT_SECRET" \
