@@ -118,3 +118,28 @@ only one of the two consumers would see.
 {{- end -}}
 {{- end -}}
 {{- end }}
+
+{{/*
+Nextcloud's Postgres password. Derived rather than looked up, so the Secret and the
+subchart's externalDatabase config agree on a first install. Explicit value wins.
+*/}}
+{{- define "opengovmail.nextcloudDbPassword" -}}
+{{- $pg := (.Values.nextcloudDeps).postgres | default dict -}}
+{{- $pg.password | default (printf "%s-opengovmail-nextcloud-postgres" .Release.Name | sha256sum | trunc 40) -}}
+{{- end }}
+
+{{/*
+Nextcloud's OIDC client secret. Derived so a first install needs no extra flag, and
+stable so the ThunderID registration job and Nextcloud agree without sharing state.
+*/}}
+{{- define "opengovmail.nextcloudClientSecret" -}}
+{{- $idp := (.Values.global).nextcloudIdp | default dict -}}
+{{- $idp.clientSecret | default (printf "%s-opengovmail-nextcloud-oidc" .Release.Name | sha256sum | trunc 40) -}}
+{{- end }}
+
+{{/*
+Hostname Nextcloud is served on.
+*/}}
+{{- define "opengovmail.nextcloudHost" -}}
+{{- required "nextcloud.nextcloud.host is required when nextcloud.enabled" ((.Values.nextcloud).nextcloud).host -}}
+{{- end }}

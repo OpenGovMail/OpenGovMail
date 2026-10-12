@@ -1,0 +1,152 @@
+{{- if and .Values.nextcloud.enabled .Values.thunderid.enabled }}
+{{- /*
+Registers Nextcloud as an OAuth client in ThunderID, then leaves the credentials in a
+Secret for Nextcloud's post-installation hook to configure user_oidc with.
+
+A Job rather than thunderid.declarativeResources, because that single mount already
+carries ThunderID's TLS certificate. The setup job is pre-install only and cannot
+re-run, so this uses the management API instead, authenticating as raven's existing
+m2m client, which already holds the system permission.
+
+Idempotent: it checks for the client id before creating it, so an upgrade is a no-op.
+*/}}
+{{- $clientSecret := include "opengovmail.nextcloudClientSecret" . }}
+{{- $clientId := (((.Values.global).nextcloudIdp).clientId) | default "NEXTCLOUD" }}
+{{- $host := include "opengovmail.nextcloudHost" . }}
+{{- $thunderUrl := printf "https://%s:8090" (include "opengovmail.domain" .) }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Release.Name }}-nextcloud-idp
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "opengovmail.labels" . | nindent 4 }}
+    app.kubernetes.io/component: nextcloud-idp
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-6"
+    "helm.sh/hook-delete-policy": before-hook-creation
+type: Opaque
+data:
+  clientId: {{ $clientId | b64enc | quote }}
+  clientSecret: {{ $clientSecret | b64enc | quote }}
+  # Here because values files cannot be templated, and the hook needs the domain.
+  discoveryUri: {{ printf "%s/.well-known/openid-configuration" $thunderUrl | b64enc | quote }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-nextcloud-oidc-register
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "opengovmail.labels" . | nindent 4 }}
+    app.kubernetes.io/component: nextcloud-oidc-register
+  annotations:
+    # post-install so ThunderID is up and its bootstrap has run.
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "5"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: 10
+  template:
+    metadata:
+      labels:
+        {{- include "opengovmail.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: nextcloud-oidc-register
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: register
+          image: {{ .Values.nextcloudDeps.registerJob.image.repository }}:{{ .Values.nextcloudDeps.registerJob.image.tag }}
+          env:
+            - name: THUNDER_URL
+              value: {{ $thunderUrl | quote }}
+            - name: NC_CLIENT_ID
+              value: {{ $clientId | quote }}
+            - name: OU_ID
+              value: {{ .Values.nextcloudDeps.registerJob.ouId | quote }}
+            - name: AUTH_FLOW_ID
+              value: {{ .Values.nextcloudDeps.registerJob.authFlowId | quote }}
+            - name: NC_REDIRECT
+              value: {{ printf "https://%s/apps/user_oidc/code" $host | quote }}
+            - name: NC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-nextcloud-idp
+                  key: clientSecret
+            - name: RAVEN_CLIENT_ID
+              value: {{ (((.Values.global).ravenIdp).clientId) | default "RAVEN_SYSTEM" | quote }}
+            - name: RAVEN_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ (((.Values.global).ravenIdp).secretName) | default "opengovmail-raven-idp" }}
+                  key: clientSecret
+          resources:
+            {{- toYaml .Values.nextcloudDeps.registerJob.resources | nindent 12 }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -eu
+              echo "waiting for ThunderID"
+              until curl -sf "$THUNDER_URL/.well-known/openid-configuration" >/dev/null; do sleep 5; done
+
+              TOKEN=$(curl -sf -u "$RAVEN_CLIENT_ID:$RAVEN_CLIENT_SECRET" \
+                -X POST "$THUNDER_URL/oauth2/token" \
+                -d grant_type=client_credentials \
+                -d 'resource=https://localhost:8090/mcp' \
+                -d scope=system \
+                | sed -E 's/.*"access_token":"([^"]+)".*/\1/')
+              [ -n "$TOKEN" ] || { echo "no token from ThunderID"; exit 1; }
+
+              # Already registered? The setup job never re-runs, so this must not duplicate.
+              # Matched on name, which is what ThunderID enforces uniqueness on.
+              if curl -sf -H "Authorization: Bearer $TOKEN" "$THUNDER_URL/applications" \
+                   | grep -q '"name":"Nextcloud"'; then
+                echo "Nextcloud application already registered"
+                exit 0
+              fi
+
+              echo "registering $NC_CLIENT_ID"
+              # camelCase. The REST API and the declarative bootstrap files agree on
+              # this; docs/Thunder-API-Consumer-Contract-Guide-for-Silver.md section 13
+              # documents snake_case and is out of date for ThunderID 1.0.x.
+              # ouId and authFlowId are ThunderID's shipped defaults.
+              cat >/tmp/app.json <<JSON
+              {
+                "name": "Nextcloud",
+                "description": "OpenGovMail collaboration suite",
+                "ouId": "$OU_ID",
+                "type": "browser",
+                "authFlowId": "$AUTH_FLOW_ID",
+                "isRegistrationFlowEnabled": false,
+                "allowedUserTypes": ["Person"],
+                "inboundAuthConfig": [{
+                  "type": "oauth2",
+                  "config": {
+                    "clientId": "$NC_CLIENT_ID",
+                    "clientSecret": "$NC_CLIENT_SECRET",
+                    "redirectUris": ["$NC_REDIRECT"],
+                    "grantTypes": ["authorization_code","refresh_token"],
+                    "responseTypes": ["code"],
+                    "pkceRequired": false,
+                    "publicClient": false,
+                    "tokenEndpointAuthMethod": "client_secret_basic"
+                  }
+                }]
+              }
+              JSON
+              code=$(curl -s -o /tmp/out.json -w '%{http_code}' \
+                -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+                -X POST "$THUNDER_URL/applications" --data @/tmp/app.json)
+              echo "status=$code"
+              # 409 means another replica won the race; both are success here.
+              # A concurrent run can win the race; ThunderID reports that as 400 with
+              # application_already_exists, not 409, so match on the body too.
+              case "$code" in
+                2*|409) echo "registered"; exit 0 ;;
+                *) if grep -q "application_already_exists" /tmp/out.json; then
+                     echo "already registered"; exit 0
+                   fi
+                   cat /tmp/out.json; exit 1 ;;
+              esac
+{{- end }}
