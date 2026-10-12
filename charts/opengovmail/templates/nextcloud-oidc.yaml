@@ -111,6 +111,9 @@ spec:
               # this; docs/Thunder-API-Consumer-Contract-Guide-for-Silver.md section 13
               # documents snake_case and is out of date for ThunderID 1.0.x.
               # ouId and authFlowId are ThunderID's shipped defaults.
+              # client_secret_post, not basic: user_oidc sends credentials in the
+              # body, and basic fails with "not allowed to use the specified
+              # authentication method" only at the token exchange, after sign-in.
               cat >/tmp/app.json <<JSON
               {
                 "name": "Nextcloud",
@@ -130,7 +133,7 @@ spec:
                     "responseTypes": ["code"],
                     "pkceRequired": false,
                     "publicClient": false,
-                    "tokenEndpointAuthMethod": "client_secret_basic"
+                    "tokenEndpointAuthMethod": "client_secret_post"
                   }
                 }]
               }
