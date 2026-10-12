@@ -111,6 +111,8 @@ spec:
               # this; docs/Thunder-API-Consumer-Contract-Guide-for-Silver.md section 13
               # documents snake_case and is out of date for ThunderID 1.0.x.
               # ouId and authFlowId are ThunderID's shipped defaults.
+              # Without scopeClaims and the token userAttributes, ThunderID releases
+              # no name claim and every account arrives with a blank display name.
               # client_secret_post, not basic: user_oidc sends credentials in the
               # body, and basic fails with "not allowed to use the specified
               # authentication method" only at the token exchange, after sign-in.
@@ -123,6 +125,7 @@ spec:
                 "authFlowId": "$AUTH_FLOW_ID",
                 "isRegistrationFlowEnabled": false,
                 "allowedUserTypes": ["Person"],
+                "userAttributes": ["given_name","family_name","email","groups","name","ouId"],
                 "inboundAuthConfig": [{
                   "type": "oauth2",
                   "config": {
@@ -133,7 +136,17 @@ spec:
                     "responseTypes": ["code"],
                     "pkceRequired": false,
                     "publicClient": false,
-                    "tokenEndpointAuthMethod": "client_secret_post"
+                    "tokenEndpointAuthMethod": "client_secret_post",
+                    "scopes": ["openid","profile","email","group"],
+                    "scopeClaims": {
+                      "profile": ["name","given_name","family_name"],
+                      "email": ["email","email_verified"],
+                      "group": ["groups"]
+                    },
+                    "token": {
+                      "idToken": {"userAttributes": ["name","given_name","family_name","email","groups"], "validityPeriod": 3600},
+                      "accessToken": {"userAttributes": ["name","email","groups"], "validityPeriod": 3600}
+                    }
                   }
                 }]
               }
