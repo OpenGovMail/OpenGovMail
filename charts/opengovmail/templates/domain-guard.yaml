@@ -73,3 +73,14 @@ Delete this file once the values it guards can be derived.
   {{- end }}
 {{- end }}
 {{- end }}
+
+{{- /* Nextcloud fetches ThunderID's OIDC discovery with certificate verification on.
+     ThunderID generates a self-signed CN=localhost cert unless pointed elsewhere, so
+     without this the registration Job fails and the install never completes. */}}
+{{- if and .Values.nextcloud.enabled .Values.thunderid.enabled }}
+{{- $certFile := ((((.Values.thunderid).configuration).tls).certFile) | default "" }}
+{{- $mountSecret := ((((.Values.thunderid).declarativeResources).secret).name) | default "" }}
+{{- if or (hasPrefix "config/certs/" $certFile) (not $mountSecret) }}
+  {{- fail (printf "Nextcloud needs ThunderID to serve a trusted certificate, but ThunderID is still using its self-signed one. Mount the cert-manager Secret (%s) and point ThunderID at it. See values-example.yaml for the full block:\n  --set thunderid.configuration.tls.certFile=config/tls/server.cert\n  --set thunderid.configuration.tls.keyFile=config/tls/server.key\n  --set thunderid.declarativeResources.enabled=true\n  --set thunderid.declarativeResources.secret.name=%s" (include "opengovmail.domain" . | replace "." "-" | printf "%s-tls") (include "opengovmail.domain" . | replace "." "-" | printf "%s-tls")) }}
+{{- end }}
+{{- end }}
