@@ -67,9 +67,14 @@ func init() {
 		ClamAVDBPath:      getEnv("CLAMAV_DB_PATH", "/var/lib/clamav"),
 		ExternalAPIURL:    getEnv("EXTERNAL_API_URL", ""),
 		PushInterval:      time.Duration(getEnvAsInt("PUSH_INTERVAL_SECONDS", 60)) * time.Second,
-		EnablePushService: getEnv("ENABLE_PUSH_SERVICE", "true") == "true",
+		EnablePushService: getEnvAsBool("ENABLE_PUSH_SERVICE", true),
 		APIKey:            getEnv("API_KEY", ""),
 		InstanceID:        getServerIP(), // Use server IP as instance ID
+	}
+
+	// time.NewTicker panics on a non-positive duration, so fail fast with a clear error.
+	if config.PushInterval <= 0 {
+		log.Fatalf("invalid PUSH_INTERVAL_SECONDS: must be a positive integer, got %v", config.PushInterval)
 	}
 }
 
@@ -88,6 +93,21 @@ func getEnvAsInt(key string, defaultValue int) int {
 		log.Printf("Warning: could not parse env var %s=%s as integer. Using default.", key, value)
 	}
 	return defaultValue
+}
+
+// getEnvAsBool parses key with strconv.ParseBool. Unset or empty values use
+// defaultVal silently; invalid values log a warning and use defaultVal.
+func getEnvAsBool(key string, defaultVal bool) bool {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return defaultVal
+	}
+	b, err := strconv.ParseBool(raw)
+	if err != nil {
+		log.Printf("WARN: invalid %s=%q (expected true/false/1/0), using default %t", key, sanitizeForLog(raw), defaultVal)
+		return defaultVal
+	}
+	return b
 }
 
 // getServerIP attempts to get the server's outbound IP address
