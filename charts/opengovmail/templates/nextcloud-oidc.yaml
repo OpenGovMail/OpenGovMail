@@ -8,7 +8,8 @@ carries ThunderID's TLS certificate. The setup job is pre-install only and canno
 re-run, so this uses the management API instead, authenticating as raven's existing
 m2m client, which already holds the system permission.
 
-Idempotent: it checks for the client id before creating it, so an upgrade is a no-op.
+Idempotent: it creates the client once, and on later runs updates it in place, so a
+new host or secret reaches ThunderID on upgrade.
 */}}
 {{- $clientSecret := include "opengovmail.nextcloudClientSecret" . }}
 {{- $clientId := (((.Values.global).nextcloudIdp).clientId) | default "NEXTCLOUD" }}
@@ -129,18 +130,26 @@ spec:
               with urllib.request.urlopen(req, timeout=30) as r:
                   token = json.loads(r.read())["access_token"]
 
+              # Lists default to 30 items, so read every page.
+              def list_all(path, key):
+                  items = []
+                  while True:
+                      _, page = call(f"{path}?limit=100&offset={len(items)}", token)
+                      batch = page.get(key) or []
+                      items += batch
+                      if not batch or len(items) >= page.get("totalResults", 0):
+                          return items
+
               # Resolve ids from handles. The UUIDs are install data, the handles are not.
               # Neither endpoint filters server side, so both are matched here.
-              _, ous = call("/organization-units", token)
               ou_handle = os.environ["OU_HANDLE"]
-              ou = next((o for o in ous.get("organizationUnits", []) if o.get("handle") == ou_handle), None)
+              ou = next((o for o in list_all("/organization-units", "organizationUnits") if o.get("handle") == ou_handle), None)
               if not ou:
                   sys.exit(f"no organization unit with handle {ou_handle}")
 
-              _, flows = call("/flows", token)
               want = os.environ["AUTH_FLOW_HANDLE"]
               flow_id = None
-              for f in flows.get("flows", []):
+              for f in list_all("/flows", "flows"):
                   if f.get("handle") != want:
                       continue
                   # flowType is only on the individual resource, not the list.
@@ -151,10 +160,8 @@ spec:
               if not flow_id:
                   sys.exit(f"no AUTHENTICATION flow with handle {want}")
 
-              _, apps = call("/applications", token)
-              if any(a.get("name") == "Nextcloud" for a in apps.get("applications", [])):
-                  print("Nextcloud application already registered")
-                  sys.exit(0)
+              existing = next((a for a in list_all("/applications", "applications")
+                               if a.get("clientId") == os.environ["NC_CLIENT_ID"]), None)
 
               app = {
                   "name": "Nextcloud",
@@ -193,14 +200,16 @@ spec:
                       },
                   }],
               }
+              # PUT takes the same body as create, so the redirect URI and secret
+              # follow the chart's values on every upgrade.
               try:
-                  status, _ = call("/applications", token, data=app, method="POST")
-                  print("registered", status)
+                  if existing:
+                      status, _ = call("/applications/" + existing["id"], token, data=app, method="PUT")
+                      print("updated", status)
+                  else:
+                      status, _ = call("/applications", token, data=app, method="POST")
+                      print("registered", status)
               except urllib.error.HTTPError as e:
-                  body = e.read().decode()
-                  # A concurrent run reports the clash as 400, not 409.
-                  if "already_exists" in body:
-                      print("already registered")
-                      sys.exit(0)
-                  sys.exit(f"{e.code}: {body}")
+                  # A clash means a concurrent run created it; the retry updates it.
+                  sys.exit(f"{e.code}: {e.read().decode()}")
 {{- end }}

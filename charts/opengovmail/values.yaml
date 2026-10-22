@@ -423,7 +423,7 @@ nextcloudDeps:
     secretName: nextcloud-postgres
     user: nextcloud
     database: nextcloud
-    # Empty derives from the release name; see opengovmail.nextcloudDbPassword.
+    # Empty generates one on first install and keeps it. Set it for helm template.
     password: ""
     image:
       repository: postgres
@@ -439,7 +439,7 @@ nextcloudDeps:
       limits:
         cpu: 500m
         memory: 512Mi
-  # Registers Nextcloud as an OAuth client in ThunderID. Needs only curl and sh.
+  # Registers Nextcloud as an OAuth client in ThunderID, or updates it on upgrade.
   registerJob:
     # Handles, not UUIDs: the ids are install data, the handles are stable names.
     # The job resolves them at runtime.

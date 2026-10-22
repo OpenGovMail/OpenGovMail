@@ -120,21 +120,28 @@ only one of the two consumers would see.
 {{- end }}
 
 {{/*
-Nextcloud's Postgres password. Derived rather than looked up, so the Secret and the
-subchart's externalDatabase config agree on a first install. Explicit value wins.
+A credential generated once and kept: explicit value, else the one already in the
+Secret, else random. Every consumer reads the Secret, so one render is enough.
+A changed explicit value fails, because the consumer only took the old one on first
+start. lookup sees nothing under helm template, so set the value explicitly there.
+Takes: ctx, secret, key, value, flag (the values path), owner (who holds the old one).
 */}}
-{{- define "opengovmail.nextcloudDbPassword" -}}
-{{- $pg := (.Values.nextcloudDeps).postgres | default dict -}}
-{{- $pg.password | default (printf "%s-opengovmail-nextcloud-postgres" .Release.Name | sha256sum | trunc 40) -}}
+{{- define "opengovmail.keptSecret" -}}
+{{- $existing := lookup "v1" "Secret" .ctx.Release.Namespace .secret -}}
+{{- $current := "" -}}
+{{- if and $existing (index ($existing.data | default dict) .key) }}{{- $current = index $existing.data .key | b64dec -}}{{- end -}}
+{{- if and .value $current (ne .value $current) -}}
+{{- fail (printf "%s differs from the value already in Secret %s. %s set the old value on first start and will not pick up a new one. Leave %s empty to keep the current value. To rotate it, change it in %s first, then delete Secret %s and upgrade with the new value." .flag .secret .owner .flag .owner .secret) -}}
+{{- end -}}
+{{- .value | default $current | default (randAlphaNum 40) -}}
 {{- end }}
 
-{{/*
-Nextcloud's OIDC client secret. Derived so a first install needs no extra flag, and
-stable so the ThunderID registration job and Nextcloud agree without sharing state.
-*/}}
+{{- define "opengovmail.nextcloudDbPassword" -}}
+{{- include "opengovmail.keptSecret" (dict "ctx" . "secret" .Values.nextcloudDeps.postgres.secretName "key" "password" "value" (.Values.nextcloudDeps.postgres.password | default "") "flag" "nextcloudDeps.postgres.password" "owner" "Postgres") -}}
+{{- end }}
+
 {{- define "opengovmail.nextcloudClientSecret" -}}
-{{- $idp := (.Values.global).nextcloudIdp | default dict -}}
-{{- $idp.clientSecret | default (printf "%s-opengovmail-nextcloud-oidc" .Release.Name | sha256sum | trunc 40) -}}
+{{- include "opengovmail.keptSecret" (dict "ctx" . "secret" .Values.nextcloudDeps.idpSecretName "key" "clientSecret" "value" ((((.Values.global).nextcloudIdp).clientSecret) | default "") "flag" "global.nextcloudIdp.clientSecret" "owner" "Nextcloud's user_oidc provider") -}}
 {{- end }}
 
 {{/*

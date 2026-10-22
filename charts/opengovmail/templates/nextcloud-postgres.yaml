@@ -3,9 +3,7 @@
 Postgres for Nextcloud. Replaces the community chart's bundled postgresql subchart,
 which pulls from bitnamilegacy (archived since August 2025, no security patches).
 
-The password is derived, not looked up: both this Secret and the Nextcloud chart's
-externalDatabase config need the same value, and lookup cannot see a Secret the same
-install has not applied yet. Same technique as seaweedfs's S3 key.
+The password is generated on first install and kept; see opengovmail.keptSecret.
 */}}
 {{- $pgPassword := include "opengovmail.nextcloudDbPassword" . }}
 apiVersion: v1
