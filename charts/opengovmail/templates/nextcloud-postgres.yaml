@@ -14,6 +14,9 @@ metadata:
   labels:
     {{- include "opengovmail.labels" . | nindent 4 }}
     app.kubernetes.io/component: nextcloud-postgres
+  annotations:
+    # Outlives uninstall like the volume, so a reinstall reuses the password.
+    "helm.sh/resource-policy": keep
 type: Opaque
 data:
   # The subchart reads both from this Secret via externalDatabase.existingSecret.
