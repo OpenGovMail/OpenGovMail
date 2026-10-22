@@ -1,0 +1,114 @@
+{{- if .Values.nextcloud.enabled }}
+{{- /*
+Postgres for Nextcloud. Replaces the community chart's bundled postgresql subchart,
+which pulls from bitnamilegacy (archived since August 2025, no security patches).
+
+The password is generated on first install and kept; see opengovmail.keptSecret.
+*/}}
+{{- $pgPassword := include "opengovmail.nextcloudDbPassword" . }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Values.nextcloudDeps.postgres.secretName }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "opengovmail.labels" . | nindent 4 }}
+    app.kubernetes.io/component: nextcloud-postgres
+  annotations:
+    # Outlives uninstall like the volume, so a reinstall reuses the password.
+    "helm.sh/resource-policy": keep
+type: Opaque
+data:
+  # The subchart reads both from this Secret via externalDatabase.existingSecret.
+  username: {{ .Values.nextcloudDeps.postgres.user | b64enc | quote }}
+  password: {{ $pgPassword | b64enc | quote }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.nextcloudDeps.postgres.serviceName }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "opengovmail.labels" . | nindent 4 }}
+    app.kubernetes.io/component: nextcloud-postgres
+spec:
+  ports:
+    - port: 5432
+      targetPort: postgres
+      name: postgres
+  selector:
+    {{- include "opengovmail.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: nextcloud-postgres
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Release.Name }}-nextcloud-postgres
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "opengovmail.labels" . | nindent 4 }}
+    app.kubernetes.io/component: nextcloud-postgres
+spec:
+  serviceName: {{ .Values.nextcloudDeps.postgres.serviceName }}
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "opengovmail.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: nextcloud-postgres
+  template:
+    metadata:
+      labels:
+        {{- include "opengovmail.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: nextcloud-postgres
+    spec:
+      securityContext:
+        fsGroup: 999
+      containers:
+        - name: postgres
+          image: "{{ .Values.nextcloudDeps.postgres.image.repository }}:{{ .Values.nextcloudDeps.postgres.image.tag }}"
+          imagePullPolicy: {{ .Values.nextcloudDeps.postgres.image.pullPolicy }}
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: {{ .Values.nextcloudDeps.postgres.database | quote }}
+            - name: POSTGRES_USER
+              value: {{ .Values.nextcloudDeps.postgres.user | quote }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.nextcloudDeps.postgres.secretName }}
+                  key: password
+            # The image refuses to initialise into a non-empty mount point, and a
+            # PVC root always has lost+found.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", {{ .Values.nextcloudDeps.postgres.user | quote }}, "-d", {{ .Values.nextcloudDeps.postgres.database | quote }}]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", {{ .Values.nextcloudDeps.postgres.user | quote }}, "-d", {{ .Values.nextcloudDeps.postgres.database | quote }}]
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.nextcloudDeps.postgres.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- with .Values.nextcloudDeps.postgres.persistence.storageClass }}
+        storageClassName: {{ . | quote }}
+        {{- end }}
+        resources:
+          requests:
+            # local-path cannot expand in place, so this size is fixed at install.
+            storage: {{ .Values.nextcloudDeps.postgres.persistence.size }}
+{{- end }}

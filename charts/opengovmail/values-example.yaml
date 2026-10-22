@@ -1,0 +1,56 @@
+# Worked example of a full deployment. Copy, change the domain, keep it out of git.
+# Deployment-specific values belong in the gitops repo, not in the chart.
+#
+# Secrets are NOT here. Pass them with --set:
+#   --set-string global.thunderAdmin.password=...
+#   --set global.ravenIdp.clientSecret=$(openssl rand -hex 32)      # first install only
+#   --set global.ravenIdp.directAuthSecret=$SECRET
+#   --set thunderid.configuration.server.security.directAuthSecret=$SECRET
+
+global:
+  domain: example.com
+  tls:
+    # The chart defaults to le-staging so a first install cannot burn the Let's
+    # Encrypt rate limit. Production needs le-prod: Nextcloud will not fetch
+    # ThunderID's OIDC discovery over an untrusted chain.
+    issuer: le-prod
+
+thunderid:
+  configuration:
+    # Both repeat the domain because the vendored subchart takes literals and
+    # Helm does not template values files. domain-guard.yaml checks them.
+    server:
+      publicUrl: https://example.com:8090
+    gateClient:
+      hostname: example.com
+    tls:
+      # Replaces the self-signed CN=localhost cert the setup job generates.
+      # Paths are fixed; the mount below supplies the files.
+      certFile: config/tls/server.cert
+      keyFile: config/tls/server.key
+
+  # The only mount the vendored chart exposes on the running pod, so it carries
+  # the certificate. Secret name is the bare domain with dots as dashes, per
+  # templates/certificate.yaml. Uses subPath, so a renewal needs a pod restart.
+  declarativeResources:
+    enabled: true
+    readOnly: true
+    secret:
+      name: example-com-tls
+      items:
+        - key: tls.crt
+          mountPath: /opt/thunderid/config/tls/server.cert
+        - key: tls.key
+          mountPath: /opt/thunderid/config/tls/server.key
+
+nextcloud:
+  enabled: true
+  nextcloud:
+    host: cloud.example.com
+    mail:
+      domain: example.com
+  ingress:
+    tls:
+      - secretName: nextcloud-tls
+        hosts:
+          - cloud.example.com

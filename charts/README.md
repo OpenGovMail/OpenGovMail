@@ -14,7 +14,7 @@ This directory contains Helm charts for OpenGovMail services.
   - `values.yaml` with safe defaults.
   - `templates/` for Kubernetes resources.
   - `README.md` with install and operations guidance.
-- Environment overlays should be kept in umbrella chart values files (`values-dev.yaml`, `values-prod.yaml`).
+- Deployment values (domain, hostnames) live in the gitops repo, not in the chart. [opengovmail/values-example.yaml](opengovmail/values-example.yaml) shows a full one.
 
 ## Next Services
 
@@ -155,14 +155,9 @@ from the old Thunder chart. The identity running Helm needs `get` on Secrets and
 `list` on Deployments there. The built-in `admin` and `edit` roles include both.
 Without them the render fails.
 
-With a values overlay (e.g. dev — TLS/SASL off, standalone postfix, domain preset):
-
-```bash
-helm upgrade --install opengovmail ./charts/opengovmail \
-  -f charts/opengovmail/values-dev.yaml \
-  --namespace opengovmail \
-  --create-namespace
-```
+[opengovmail/values-example.yaml](opengovmail/values-example.yaml) is a full values
+file to start from: copy it, change the domain, and pass it with `-f`. Secrets still
+go on the command line.
 
 Verify certificates:
 
@@ -221,6 +216,5 @@ bootstrapped yet.
 Raven reaches ThunderID on port `8090` using the public name, which matches the JWT
 issuer. [opengovmail/templates/thunder-lb.yaml](opengovmail/templates/thunder-lb.yaml)
 exposes `8090` on the node for the console and gate UIs. `thunderid.ingress` is
-disabled. The dev overlay ([values-dev.yaml](opengovmail/values-dev.yaml)) disables
-ThunderID and raven for a postfix-only bring-up.
+disabled.
 ---

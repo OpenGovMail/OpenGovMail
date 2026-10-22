@@ -307,3 +307,167 @@ thunderid:
       name: "thunder-bootstrap"
       files:
         - 70-mail-domain.yaml
+
+# Nextcloud (upstream community chart). Keys under here belong to that chart.
+nextcloud:
+  enabled: false
+
+  nextcloud:
+    # Overridden per deployment. Must match the ingress host below.
+    host: ""
+    # Traefik terminates TLS and forwards plain HTTP, so Nextcloud has to be told
+    # the public scheme. Without it OIDC refuses to start. 10.42.0.0/16 is k3s's
+    # default pod CIDR, where the ingress controller lives.
+    configs:
+      reverse-proxy-https.config.php: |-
+        <?php
+        $CONFIG = array (
+          'overwriteprotocol' => 'https',
+          'trusted_proxies' => array('10.42.0.0/16'),
+        );
+    mail:
+      enabled: true
+      fromAddress: nextcloud
+      domain: ""
+      smtp:
+        # In-cluster postfix. Plain 25 on the pod network, no auth.
+        host: postfix
+        secure: ""
+        port: 25
+        authtype: ""
+        name: ""
+        password: ""
+
+  # Bundled databases stay off: both pull from bitnamilegacy, archived Aug 2025.
+    # Credentials for the ThunderID provider, written by templates/nextcloud-oidc.yaml.
+    extraEnv:
+      - name: OIDC_CLIENT_ID
+        valueFrom:
+          secretKeyRef: {name: nextcloud-idp, key: clientId}
+      - name: OIDC_CLIENT_SECRET
+        valueFrom:
+          secretKeyRef: {name: nextcloud-idp, key: clientSecret}
+      - name: OIDC_DISCOVERY
+        valueFrom:
+          secretKeyRef: {name: nextcloud-idp, key: discoveryUri}
+
+    # Runs once, when the image first installs Nextcloud. Provider rows live in the
+    # database, so a restart does not need to repeat it.
+    hooks:
+      post-installation: |-
+        php occ app:install user_oidc || php occ app:enable user_oidc
+        # Not in the base image, so install them here.
+        php occ app:install calendar || php occ app:enable calendar
+        php occ app:install mail || php occ app:enable mail
+        php occ user_oidc:provider ThunderID \
+          --clientid="$OIDC_CLIENT_ID" \
+          --clientsecret="$OIDC_CLIENT_SECRET" \
+          --discoveryuri="$OIDC_DISCOVERY" \
+          --scope="openid profile email group" \
+          --mapping-uid=sub \
+          --mapping-display-name=name \
+          --mapping-email=email \
+          --mapping-groups=groups
+
+  internalDatabase:
+    enabled: false
+  postgresql:
+    enabled: false
+  mariadb:
+    enabled: false
+  redis:
+    enabled: false
+
+  externalDatabase:
+    enabled: true
+    type: postgresql
+    host: "nextcloud-postgres:5432"
+    user: nextcloud
+    database: nextcloud
+    existingSecret:
+      enabled: true
+      # Release-independent, like the service names. Must equal
+      # nextcloudDeps.postgres.secretName; domain-guard.yaml fails the render otherwise.
+      secretName: nextcloud-postgres
+      usernameKey: username
+      passwordKey: password
+
+  externalRedis:
+    enabled: true
+    host: "nextcloud-redis"
+    port: "6379"
+
+  # Nextcloud needs background jobs every 5 minutes; the compose setup never had them.
+  cronjob:
+    enabled: true
+
+  persistence:
+    enabled: true
+    size: 30Gi
+
+  ingress:
+    enabled: true
+    className: traefik
+    annotations:
+      cert-manager.io/cluster-issuer: le-prod
+      traefik.ingress.kubernetes.io/router.entrypoints: websecure
+
+# Postgres and Redis for Nextcloud, rendered by templates/nextcloud-*.yaml.
+# Separate from the nextcloud block because that one is the upstream chart's scope.
+nextcloudDeps:
+  # Release-independent so nothing assumes the release is called opengovmail.
+  idpSecretName: nextcloud-idp
+
+  postgres:
+    serviceName: nextcloud-postgres
+    secretName: nextcloud-postgres
+    user: nextcloud
+    database: nextcloud
+    # Empty generates one on first install and keeps it. Set it for helm template.
+    password: ""
+    image:
+      repository: postgres
+      tag: "16-alpine"
+      pullPolicy: IfNotPresent
+    persistence:
+      storageClass: ""
+      size: 5Gi
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+  # Registers Nextcloud as an OAuth client in ThunderID, or updates it on upgrade.
+  registerJob:
+    # Handles, not UUIDs: the ids are install data, the handles are stable names.
+    # The job resolves them at runtime.
+    ouHandle: default
+    authFlowHandle: default-flow
+    # Which ThunderID user types may sign in. Types belong to one OU, so adding an
+    # OU means adding its type here.
+    allowedUserTypes: ["Person"]
+    # Audience raven's token is minted for; registered as localhost by the bootstrap
+    # whatever the public URL, same as raven.thunder.resourceIdentifier.
+    resourceIdentifier: "https://localhost:8090/mcp"
+    image:
+      repository: python
+      tag: "3.12-alpine"
+    resources:
+      requests: {cpu: 25m, memory: 32Mi}
+      limits: {cpu: 200m, memory: 64Mi}
+
+  redis:
+    serviceName: nextcloud-redis
+    image:
+      repository: redis
+      tag: "7-alpine"
+      pullPolicy: IfNotPresent
+    resources:
+      requests:
+        cpu: 25m
+        memory: 32Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi
