@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -22,6 +23,17 @@ import (
 var httpClient = &http.Client{
 	Timeout: 15 * time.Second,
 }
+
+// HTTP server and request size limits.
+const (
+	serverReadHeaderTimeout = 5 * time.Second
+	serverReadTimeout       = 10 * time.Second
+	serverWriteTimeout      = 15 * time.Second
+	serverIdleTimeout       = 60 * time.Second
+	serverMaxHeaderBytes    = 1 << 14 // 16 KB
+	maxRequestBodyBytes     = 1 << 20 // 1 MiB
+	maxErrorBodyBytes       = 4 << 10 // 4 KB
+)
 
 // Compiled regex for ClamAV CVD header parsing
 var clamAVVDBRegex = regexp.MustCompile(`ClamAV-VDB:(\d+):(\d+):`)
@@ -209,7 +221,7 @@ func pushMetadataToExternalAPI() error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, maxErrorBodyBytes))
 		return fmt.Errorf("external API returned status %d: %s", resp.StatusCode, string(body))
 	}
 
@@ -294,8 +306,20 @@ func apiKeyAuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 
 // receiveSuperPlatformResultHandler handles incoming results from Super Platform
 func receiveSuperPlatformResultHandler(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodyBytes)
+
 	var result SuperPlatformResult
 	if err := json.NewDecoder(r.Body).Decode(&result); err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusRequestEntityTooLarge)
+			json.NewEncoder(w).Encode(map[string]string{
+				"error": "Request payload too large",
+			})
+			return
+		}
+
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]string{
@@ -308,10 +332,10 @@ func receiveSuperPlatformResultHandler(w http.ResponseWriter, r *http.Request) {
 	// For now, just log and acknowledge
 	log.Printf("Received result from Super Platform: status=%s, timestamp=%s", sanitizeForLog(result.Status), sanitizeForLog(result.Timestamp))
 
-	// Sanitize data for logging by converting to JSON string
+	// Log only the payload size, never the payload content
 	dataJSON, err := json.Marshal(result.Data)
 	if err == nil {
-		log.Printf("Data received: %s", sanitizeForLog(string(dataJSON)))
+		log.Printf("Data received: %d bytes", len(dataJSON))
 	} else {
 		log.Printf("Data received: (unable to marshal)")
 	}
@@ -351,6 +375,20 @@ func loggingMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+// newServer builds the HTTP server for the metadata service with hardened
+// timeouts and header size limits.
+func newServer(addr string, handler http.Handler) *http.Server {
+	return &http.Server{
+		Addr:              addr,
+		Handler:           handler,
+		ReadHeaderTimeout: serverReadHeaderTimeout,
+		ReadTimeout:       serverReadTimeout,
+		WriteTimeout:      serverWriteTimeout,
+		IdleTimeout:       serverIdleTimeout,
+		MaxHeaderBytes:    serverMaxHeaderBytes,
+	}
+}
+
 func main() {
 	log.Println("OpenGovMail Metadata Service (Go)")
 	log.Printf("Port: %s", config.Port)
@@ -382,7 +420,7 @@ func main() {
 	// Start server
 	addr := "0.0.0.0:" + config.Port
 	log.Printf("Server listening on %s", addr)
-	if err := http.ListenAndServe(addr, handler); err != nil {
+	if err := newServer(addr, handler).ListenAndServe(); err != nil {
 		log.Fatalf("Server failed to start: %v", err)
 	}
 }
