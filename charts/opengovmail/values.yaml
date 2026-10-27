@@ -12,6 +12,10 @@ global:
     s3: seaweedfs-s3
     postfix: postfix
     thunderLb: thunder-lb
+  # An external ThunderID, e.g. https://thunder.example.com, with thunderid.enabled
+  # false. Empty uses the bundled one at https://<domain>:8090.
+  thunder:
+    url: ""
   # Thunder admin credential, created by templates/thunder-admin-secret.yaml and
   # read by BOTH raven (raven.thunder.systemPasswordSecret) and the Thunder setup
   # job (thunder.setup.secretEnv). This is the canonical name — the template fails
@@ -145,7 +149,8 @@ raven:
     # Verified by reading /resource-servers back from a running install. Raven would
     # otherwise derive it from its own base URL, and the token request fails with
     # invalid_target — which names the resource parameter and gives no hint that the
-    # registered identifier is a hardcoded localhost.
+    # registered identifier is a hardcoded localhost. An external ThunderID uses its
+    # own, e.g. https://thunder.example.com/mcp.
     resourceIdentifier: "https://localhost:8090/mcp"
 
 seaweedfs:
@@ -351,14 +356,15 @@ nextcloud:
         valueFrom:
           secretKeyRef: {name: nextcloud-idp, key: discoveryUri}
 
-    # Runs once, when the image first installs Nextcloud. Provider rows live in the
-    # database, so a restart does not need to repeat it.
+    # Apps install once. The provider is rewritten on every start, so a new ThunderID
+    # URL or secret takes effect when the Nextcloud pod next restarts.
     hooks:
       post-installation: |-
         php occ app:install user_oidc || php occ app:enable user_oidc
         # Not in the base image, so install them here.
         php occ app:install calendar || php occ app:enable calendar
         php occ app:install mail || php occ app:enable mail
+      before-starting: |-
         php occ user_oidc:provider ThunderID \
           --clientid="$OIDC_CLIENT_ID" \
           --clientsecret="$OIDC_CLIENT_SECRET" \
@@ -440,6 +446,8 @@ nextcloudDeps:
         cpu: 500m
         memory: 512Mi
   # Registers Nextcloud as an OAuth client in ThunderID, or updates it on upgrade.
+  # An external ThunderID must already have this OU, flow and resource identifier,
+  # and raven's m2m client (global.ravenIdp.clientId) with the system permission.
   registerJob:
     # Handles, not UUIDs: the ids are install data, the handles are stable names.
     # The job resolves them at runtime.

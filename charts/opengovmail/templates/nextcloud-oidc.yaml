@@ -1,4 +1,4 @@
-{{- if and .Values.nextcloud.enabled .Values.thunderid.enabled }}
+{{- if .Values.nextcloud.enabled }}
 {{- /*
 Registers Nextcloud as an OAuth client in ThunderID, then leaves the credentials in a
 Secret for Nextcloud's post-installation hook to configure user_oidc with.
@@ -14,7 +14,7 @@ new host or secret reaches ThunderID on upgrade.
 {{- $clientSecret := include "opengovmail.nextcloudClientSecret" . }}
 {{- $clientId := (((.Values.global).nextcloudIdp).clientId) | default "NEXTCLOUD" }}
 {{- $host := include "opengovmail.nextcloudHost" . }}
-{{- $thunderUrl := printf "https://%s:8090" (include "opengovmail.domain" .) }}
+{{- $thunderUrl := include "opengovmail.thunderUrl" . }}
 apiVersion: v1
 kind: Secret
 metadata:

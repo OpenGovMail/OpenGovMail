@@ -57,11 +57,24 @@ Delete this file once the values it guards can be derived.
 {{- end }}
 {{- end }}
 
+{{- /* One ThunderID or the other: with both, sign-in splits across two servers. */}}
+{{- with ((.Values.global).thunder).url }}
+{{- if $.Values.thunderid.enabled }}
+  {{- fail (printf "global.thunder.url (%s) points at an external ThunderID, so set thunderid.enabled=false." .) }}
+{{- end }}
+{{- if not (hasPrefix "https://" .) }}
+  {{- fail (printf "global.thunder.url (%s) must start with https://." .) }}
+{{- end }}
+{{- end }}
+
 {{- /* Nextcloud's Secret names are written twice: once by our templates, once in the
      vendored chart's values, which Helm will not template. Check rather than hope. */}}
 {{- if .Values.nextcloud.enabled }}
-{{- if not .Values.thunderid.enabled }}
-  {{- fail (printf "nextcloud.enabled needs thunderid.enabled. Nextcloud signs in through ThunderID, and its pod reads Secret %s, which only exists when ThunderID is on." .Values.nextcloudDeps.idpSecretName) }}
+{{- if not (or .Values.thunderid.enabled (((.Values.global).thunder).url)) }}
+  {{- fail "nextcloud.enabled needs a ThunderID to sign in through: set thunderid.enabled, or global.thunder.url for an external one." }}
+{{- end }}
+{{- if not (or .Values.thunderid.enabled .Values.raven.enabled) }}
+  {{- fail (printf "nextcloud.enabled needs raven.enabled: Nextcloud registers with ThunderID using raven's credentials, and Secret %s is only created with raven or the bundled ThunderID." .Values.global.ravenIdp.secretName) }}
 {{- end }}
 {{- $pgSecret := .Values.nextcloudDeps.postgres.secretName }}
 {{- $ncPgSecret := ((((.Values.nextcloud).externalDatabase).existingSecret).secretName) }}
