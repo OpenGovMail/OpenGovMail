@@ -57,6 +57,34 @@ func TestReceiveSuperPlatformResultRejectsOversizedBody(t *testing.T) {
 	}
 }
 
+func TestReceiveSuperPlatformResultRejectsMalformedJSON(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/api/results", strings.NewReader(`{"status":`))
+	rec := httptest.NewRecorder()
+
+	receiveSuperPlatformResultHandler(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+}
+
+func TestReceiveSuperPlatformResultRejectsOversizedBodyWithTrailingWhitespace(t *testing.T) {
+	// A valid JSON value followed by more than the body limit in whitespace.
+	// json.Decoder stops after the first value and never reads the rest, so the
+	// size cap must be enforced by consuming the whole bounded body.
+	payload := []byte(`{"status":"ok","data":{"note":"hello"},"timestamp":"2026-01-01T00:00:00Z"}`)
+	payload = append(payload, bytes.Repeat([]byte(" "), testMaxRequestBodyBytes+1)...)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/results", bytes.NewReader(payload))
+	rec := httptest.NewRecorder()
+
+	receiveSuperPlatformResultHandler(rec, req)
+
+	if rec.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusRequestEntityTooLarge)
+	}
+}
+
 func TestReceiveSuperPlatformResultLogsPayloadSizeNotContent(t *testing.T) {
 	const secret = "SUPER_SECRET_PAYLOAD_VALUE"
 	payload := []byte(fmt.Sprintf(`{"status":"ok","data":{"note":%q},"timestamp":"2026-01-01T00:00:00Z"}`, secret))
@@ -102,6 +130,10 @@ func TestNewServerConfiguresTimeoutsAndLimits(t *testing.T) {
 }
 
 func TestServerServesHealthAndRejectsOversizedPost(t *testing.T) {
+	// Use a test-owned key so the test does not depend on API_KEY being unset
+	// in the environment.
+	setTestAPIKey(t, "test-api-key")
+
 	router := http.NewServeMux()
 	router.HandleFunc("/health", healthHandler)
 	router.HandleFunc("/api/results", apiKeyAuthMiddleware(receiveSuperPlatformResultHandler))
@@ -128,8 +160,15 @@ func TestServerServesHealthAndRejectsOversizedPost(t *testing.T) {
 	}
 
 	blob := strings.Repeat("a", testMaxRequestBodyBytes+1)
-	resp, err = http.Post(baseURL+"/api/results", "application/json",
-		bytes.NewReader([]byte(fmt.Sprintf(`{"status":"ok","data":{"blob":%q}}`, blob))))
+	payload := []byte(fmt.Sprintf(`{"status":"ok","data":{"blob":%q}}`, blob))
+	req, err := http.NewRequest(http.MethodPost, baseURL+"/api/results", bytes.NewReader(payload))
+	if err != nil {
+		t.Fatalf("failed to build POST request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-API-Key", "test-api-key")
+
+	resp, err = http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("POST /api/results failed: %v", err)
 	}
@@ -137,6 +176,15 @@ func TestServerServesHealthAndRejectsOversizedPost(t *testing.T) {
 	if resp.StatusCode != http.StatusRequestEntityTooLarge {
 		t.Errorf("oversized POST status = %d, want %d", resp.StatusCode, http.StatusRequestEntityTooLarge)
 	}
+}
+
+// setTestAPIKey overrides the package-level config for the duration of the
+// test, so tests do not depend on API_KEY being unset in the environment.
+func setTestAPIKey(t *testing.T, key string) {
+	t.Helper()
+	prev := config.APIKey
+	config.APIKey = key
+	t.Cleanup(func() { config.APIKey = prev })
 }
 
 // captureLogs redirects the standard logger for the duration of fn and returns

@@ -304,27 +304,36 @@ func apiKeyAuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+// writeJSONError sends a JSON error response with the given status code.
+func writeJSONError(w http.ResponseWriter, status int, message string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(map[string]string{
+		"error": message,
+	})
+}
+
 // receiveSuperPlatformResultHandler handles incoming results from Super Platform
 func receiveSuperPlatformResultHandler(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodyBytes)
 
-	var result SuperPlatformResult
-	if err := json.NewDecoder(r.Body).Decode(&result); err != nil {
+	// Read the whole bounded body before decoding. json.Decoder stops after the
+	// first JSON value, so trailing bytes would never trip MaxBytesReader.
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
 		var maxBytesErr *http.MaxBytesError
 		if errors.As(err, &maxBytesErr) {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusRequestEntityTooLarge)
-			json.NewEncoder(w).Encode(map[string]string{
-				"error": "Request payload too large",
-			})
+			writeJSONError(w, http.StatusRequestEntityTooLarge, "Request payload too large")
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "Invalid JSON payload",
-		})
+		writeJSONError(w, http.StatusBadRequest, "Invalid JSON payload")
+		return
+	}
+
+	var result SuperPlatformResult
+	if err := json.Unmarshal(body, &result); err != nil {
+		writeJSONError(w, http.StatusBadRequest, "Invalid JSON payload")
 		return
 	}
 
