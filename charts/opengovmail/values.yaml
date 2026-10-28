@@ -357,7 +357,9 @@ nextcloud:
           secretKeyRef: {name: nextcloud-idp, key: discoveryUri}
 
     # Apps install once. The provider is rewritten on every start, so a new ThunderID
-    # URL or secret takes effect when the Nextcloud pod next restarts.
+    # URL takes effect when the Nextcloud pod next restarts. To rotate the client
+    # secret, delete Secret nextcloud-idp, upgrade with global.nextcloudIdp.clientSecret,
+    # then restart the Nextcloud pod.
     hooks:
       post-installation: |-
         php occ app:install user_oidc || php occ app:enable user_oidc

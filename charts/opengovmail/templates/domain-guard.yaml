@@ -65,6 +65,11 @@ Delete this file once the values it guards can be derived.
 {{- if not (hasPrefix "https://" .) }}
   {{- fail (printf "global.thunder.url (%s) must start with https://." .) }}
 {{- end }}
+{{- /* raven builds its URLs from host and port only, so a path would be dropped. */}}
+{{- $u := urlParse . }}
+{{- if or (ne (trimSuffix "/" $u.path) "") $u.query $u.fragment }}
+  {{- fail (printf "global.thunder.url (%s) must be just https://host[:port], with no path, query or fragment." .) }}
+{{- end }}
 {{- end }}
 
 {{- /* Nextcloud's Secret names are written twice: once by our templates, once in the
