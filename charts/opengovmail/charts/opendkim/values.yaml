@@ -2,7 +2,7 @@ replicaCount: 1
 
 image:
   repository: ghcr.io/opengovmail/opengovmail-dkim
-  tag: main
+  tag: "0.4.0"
   pullPolicy: IfNotPresent
 
 nameOverride: ""
