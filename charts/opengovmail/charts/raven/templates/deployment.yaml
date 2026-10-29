@@ -58,7 +58,7 @@ spec:
             - name: THUNDER_HOST
               value: {{ include "raven.thunderHost" . | quote }}
             - name: THUNDER_PORT
-              value: {{ .Values.thunder.port | quote }}
+              value: {{ include "raven.thunderPort" . | quote }}
             {{- /* Raven authenticates to ThunderID as its own machine-to-machine
                  application, not as the admin user: only fullstack and custom apps
                  may start a login flow server-side, so the old route now answers 403.

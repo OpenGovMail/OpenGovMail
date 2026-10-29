@@ -145,6 +145,13 @@ Takes: ctx, secret, key, value, flag (the values path), owner (who holds the old
 {{- end }}
 
 {{/*
+ThunderID's base URL: global.thunder.url, else the bundled one.
+*/}}
+{{- define "opengovmail.thunderUrl" -}}
+{{- (((.Values.global).thunder).url) | default (printf "https://%s:8090" (include "opengovmail.domain" .)) | trimSuffix "/" -}}
+{{- end }}
+
+{{/*
 Hostname Nextcloud is served on.
 */}}
 {{- define "opengovmail.nextcloudHost" -}}

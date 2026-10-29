@@ -67,13 +67,36 @@ Both are the public name rather than the in-cluster Service name because raven
 speaks HTTPS with no skip-verify or custom-CA option, and opengovmail-thunder-service
 is not on the cert either. In-cluster calls therefore hairpin via the node's
 external IP (see finding #7).
+
+global.thunder.url (an external ThunderID) supplies host and port when the
+matching thunder.host / thunder.publicHost is empty.
 */}}
+{{- define "raven.externalThunder" -}}
+{{- with ((.Values.global).thunder).url -}}
+{{- $u := urlParse . -}}
+{{- $port := trimPrefix (printf "%s:" $u.hostname) $u.host -}}
+{{- dict "host" $u.hostname "port" (ternary "443" $port (eq $port $u.host)) | toJson -}}
+{{- end -}}
+{{- end }}
+
 {{- define "raven.thunderHost" -}}
-{{- .Values.thunder.host | default (include "raven.domain" .) }}
+{{- $ext := include "raven.externalThunder" . | default "{}" | fromJson -}}
+{{- .Values.thunder.host | default $ext.host | default (include "raven.domain" .) }}
+{{- end }}
+
+{{- define "raven.thunderPort" -}}
+{{- $ext := include "raven.externalThunder" . | default "{}" | fromJson -}}
+{{- if and $ext.port (not .Values.thunder.host) }}{{ $ext.port }}{{ else }}{{ .Values.thunder.port }}{{ end }}
 {{- end }}
 
 {{- define "raven.thunderPublicHost" -}}
-{{- .Values.thunder.publicHost | default (include "raven.domain" .) }}
+{{- $ext := include "raven.externalThunder" . | default "{}" | fromJson -}}
+{{- .Values.thunder.publicHost | default $ext.host | default (include "raven.domain" .) }}
+{{- end }}
+
+{{- define "raven.thunderPublicPort" -}}
+{{- $ext := include "raven.externalThunder" . | default "{}" | fromJson -}}
+{{- if and $ext.port (not .Values.thunder.publicHost) }}{{ $ext.port }}{{ else }}{{ .Values.thunder.publicPort }}{{ end }}
 {{- end }}
 
 {{/*
