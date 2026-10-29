@@ -4,8 +4,8 @@
 
 image:
   repository: ghcr.io/opengovmail/opengovmail-smtp
-  tag: main
-  pullPolicy: Always
+  tag: "0.4.0"
+  pullPolicy: IfNotPresent
 
 nameOverride: ""
 fullnameOverride: ""

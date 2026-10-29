@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+    # A release tag (v0.4.0) builds every image as 0.4.0. Not v.0.4.0: semver can't parse it.
+    tags:
+      - 'v[0-9]*'
   workflow_dispatch:
 
 env:
@@ -28,6 +31,7 @@ jobs:
 
       - name: Detect changed files
         uses: dorny/paths-filter@v3
+        if: github.ref_type == 'branch'
         id: changes
         with:
           filters: |
@@ -44,7 +48,7 @@ jobs:
 
   build-smtp:
     needs: detect-changes
-    if: needs.detect-changes.outputs.smtp == 'true'
+    if: github.ref_type == 'tag' || needs.detect-changes.outputs.smtp == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -68,9 +72,12 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-smtp
+          # latest follows main only, not every release tag.
+          flavor: latest=false
           tags: |
             type=ref,event=branch
-            type=sha,prefix={{branch}}-
+            type=sha,prefix={{branch}}-,enable=${{ github.ref_type == 'branch' }}
+            type=semver,pattern={{version}}
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push Docker image
@@ -86,7 +93,7 @@ jobs:
 
   build-dkim:
     needs: detect-changes
-    if: needs.detect-changes.outputs.dkim == 'true'
+    if: github.ref_type == 'tag' || needs.detect-changes.outputs.dkim == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -110,9 +117,12 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-dkim
+          # latest follows main only, not every release tag.
+          flavor: latest=false
           tags: |
             type=ref,event=branch
-            type=sha,prefix={{branch}}-
+            type=sha,prefix={{branch}}-,enable=${{ github.ref_type == 'branch' }}
+            type=semver,pattern={{version}}
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push Docker image
@@ -128,7 +138,7 @@ jobs:
 
   build-certbot:
     needs: detect-changes
-    if: needs.detect-changes.outputs.certbot == 'true'
+    if: github.ref_type == 'tag' || needs.detect-changes.outputs.certbot == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -152,9 +162,12 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-certbot
+          # latest follows main only, not every release tag.
+          flavor: latest=false
           tags: |
             type=ref,event=branch
-            type=sha,prefix={{branch}}-
+            type=sha,prefix={{branch}}-,enable=${{ github.ref_type == 'branch' }}
+            type=semver,pattern={{version}}
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push Docker image
@@ -170,7 +183,7 @@ jobs:
 
   build-metadata:
     needs: detect-changes
-    if: needs.detect-changes.outputs.metadata == 'true'
+    if: github.ref_type == 'tag' || needs.detect-changes.outputs.metadata == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -194,9 +207,12 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-metadata-service
+          # latest follows main only, not every release tag.
+          flavor: latest=false
           tags: |
             type=ref,event=branch
-            type=sha,prefix={{branch}}-
+            type=sha,prefix={{branch}}-,enable=${{ github.ref_type == 'branch' }}
+            type=semver,pattern={{version}}
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push Docker image
