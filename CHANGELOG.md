@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0]
+
+Helm charts for every service, the Silver to OpenGovMail rename, ThunderID 1.0.1 with support for an external ThunderID, Nextcloud with ThunderID single sign-on, and versioned images built on release tags. This release moves from `v.X.Y.Z` tags to `vX.Y.Z`.
+
+## What's Changed
+* Update project status of features in README by @Aravinda-HWK in https://github.com/OpenGovMail/OpenGovMail/pull/308
+* Add Thunder API Consumer Contract Guide for Silver by @Aravinda-HWK in https://github.com/OpenGovMail/OpenGovMail/pull/316
+* 309 task add email application setup step in thunder by @Aravinda-HWK in https://github.com/OpenGovMail/OpenGovMail/pull/312
+* Add example Thunderbird extension for OAuth2 authentication by @Aravinda-HWK in https://github.com/OpenGovMail/OpenGovMail/pull/311
+* Create Helm subchart for OpenDKIM service with configuration and templates by @Aravinda-HWK in https://github.com/OpenGovMail/OpenGovMail/pull/320
+* Add Helm subchart for cert-manager to manage TLS certificates by @maneesha-xyz in https://github.com/OpenGovMail/OpenGovMail/pull/325
+* Upgrade Thunder to version 0.32.0 and update configuration for console application by @Aravinda-HWK in https://github.com/OpenGovMail/OpenGovMail/pull/328
+* Disable SMTP VRFY and EXPN commands for security by @manupawickramasinghe in https://github.com/OpenGovMail/OpenGovMail/pull/332
+* #333 Update gen-postfix-conf.sh and replace hardcoded Thunder credentials  by @manupawickramasinghe in https://github.com/OpenGovMail/OpenGovMail/pull/334
+* #63 Standardize Docker Compose service names by @prdai in https://github.com/OpenGovMail/OpenGovMail/pull/337
+* docs: remove unused conf/users.yaml and update Adding users to Thunder flow (#338) by @prdai in https://github.com/OpenGovMail/OpenGovMail/pull/339
+* 322 task create helm subchart for rspamd service by @Aravinda-HWK in https://github.com/OpenGovMail/OpenGovMail/pull/324
+* Feat/postfix charts by @maneesha-xyz in https://github.com/OpenGovMail/OpenGovMail/pull/342
+* feat(charts): add Thunder identity server via umbrella dependency by @Aravinda-HWK in https://github.com/OpenGovMail/OpenGovMail/pull/344
+* Feat/raven seaweed charts (#343) by @maneesha-xyz in https://github.com/OpenGovMail/OpenGovMail/pull/345
+* chore: docs by @maneesha-xyz in https://github.com/OpenGovMail/OpenGovMail/pull/346
+* Wip/silver charts by @maneesha-xyz in https://github.com/OpenGovMail/OpenGovMail/pull/347
+* Rename Silver → OpenGovMail across the codebase by @saknarajapakshe in https://github.com/OpenGovMail/OpenGovMail/pull/352
+* fix: update references from Silver to OpenGovMail in configuration files by @saknarajapakshe in https://github.com/OpenGovMail/OpenGovMail/pull/360
+* fix: fail fast on missing/unparseable domain config in OpenDKIM and Postfix entrypoints by @Dushmilan in https://github.com/OpenGovMail/OpenGovMail/pull/361
+* docs(charts): fix Thunder admin credentials instructions in README by @saknarajapakshe in https://github.com/OpenGovMail/OpenGovMail/pull/359
+* feat(charts): migrate to thunderid 1.0.1 with a raven service account by @maneesha-xyz in https://github.com/OpenGovMail/OpenGovMail/pull/358
+* metadata-service: validate PUSH_INTERVAL_SECONDS and parse ENABLE_PUS… by @ruchitasingla in https://github.com/OpenGovMail/OpenGovMail/pull/377
+* chore(docker): update and pin service base images by @Dushmilan in https://github.com/OpenGovMail/OpenGovMail/pull/378
+* feat(charts): add Nextcloud with ThunderID single sign-on by @maneesha-xyz in https://github.com/OpenGovMail/OpenGovMail/pull/372
+* feat(charts): support an external ThunderID via global.thunder.url by @maneesha-xyz in https://github.com/OpenGovMail/OpenGovMail/pull/381
+* feat: build versioned images on release tags and pin chart images by @maneesha-xyz in https://github.com/OpenGovMail/OpenGovMail/pull/382
+
+
+**Full Changelog**: https://github.com/OpenGovMail/OpenGovMail/compare/v.0.3.0...v0.4.0
+
 ## [0.3.0]
 
 Multi-domain support, improved configuration handling, group address validation, Thunder upgrade to 0.27.0, and removal of legacy socketmap/Thunder integration.
