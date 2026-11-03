@@ -71,9 +71,19 @@ You will need to add a few records to your DNS control panel.
 | TXT        | example.com | "v=spf1 ip4:12.34.56.78 ~all"                          |
 | TXT        | _dmarc      | "v=DMARC1; p=quarantine; rua=mailto:dmarc@example.com" |
 | PTR        | 12.34.56.78 | mail.example.com                                       |
+| SRV        | _imaps._tcp.example.com | `0 1 993 mail.example.com.`                 |
+| SRV        | _submission._tcp.example.com | `0 1 587 mail.example.com.`            |
+| SRV        | _autodiscover._tcp.example.com | `0 1 443 mail.example.com.`          |
 
 > [!Tip]
-> PTR records are usually set through your hosting provider. 
+> PTR records are usually set through your hosting provider.
+
+> [!Note]
+> The SRV records let email clients discover the IMAP, SMTP, and Autodiscover
+> services automatically. Add them for every domain configured in
+> `conf/opengovmail.yaml`, using the primary domain's `mail.` host as the target.
+> The autodiscovery endpoints are served on the domain apex and on
+> `mail.<primary-domain>`, so no additional A records are required.
 
 ### Server Setup
 -  Use the below command to clone the OpenGovMail Repo and navigate to the OpenGovMail folder.

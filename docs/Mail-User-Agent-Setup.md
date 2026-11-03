@@ -4,6 +4,73 @@ This guide will help you set up a Mail User Agent (MUA) to interact with your Op
 
 **Note:** For enhanced security, we recommend using port 993 (IMAPS with SSL/TLS) for incoming mail instead of port 143 (STARTTLS).
 
+## Automatic configuration
+
+OpenGovMail publishes autodiscovery endpoints so supported email clients can
+fill in the IMAP and SMTP settings after the user enters their email address.
+The endpoints are served on your primary domain and on `mail.<primary-domain>`.
+
+### What is published
+
+| Client | Lookup |
+|--------|--------|
+| Thunderbird | `https://yourdomain.com/mail/config-v1.1.xml?emailaddress=user@yourdomain.com` |
+| Thunderbird (fallback) | `https://yourdomain.com/.well-known/autoconfig/mail/config-v1.1.xml?emailaddress=user@yourdomain.com` |
+| Outlook | `https://yourdomain.com/autodiscover/autodiscover.xml` |
+| Outlook (mail host) | `https://mail.yourdomain.com/autodiscover/autodiscover.xml` |
+| Apple Mail, iOS, and other RFC 6186 clients | DNS SRV records |
+
+The autodiscovery service reads the domains from `conf/opengovmail.yaml` and
+returns settings for every configured domain. It uses `mail.<primary-domain>`
+for both IMAP and SMTP.
+
+### DNS records
+
+Add these SRV records for every domain you configure. Replace `yourdomain.com`
+with the domain and `mail.yourdomain.com` with the primary domain's mail host.
+
+```dns
+_imaps._tcp.yourdomain.com.        3600 IN SRV 0 1 993 mail.yourdomain.com.
+_submission._tcp.yourdomain.com.   3600 IN SRV 0 1 587 mail.yourdomain.com.
+_autodiscover._tcp.yourdomain.com. 3600 IN SRV 0 1 443 mail.yourdomain.com.
+```
+
+`scripts/service/start-opengovmail.sh` prints these records for every domain in
+`conf/opengovmail.yaml` after the DKIM record.
+
+The SRV records are optional, but they improve automatic setup in clients that
+support RFC 6186 and give Outlook an additional discovery path. The mail host
+must resolve and present a valid TLS certificate; the existing certificate
+already covers the domain apex and `mail.<primary-domain>`.
+
+### Verifying autodiscovery
+
+Thunderbird configuration:
+
+```bash
+curl -sS "https://yourdomain.com/.well-known/autoconfig/mail/config-v1.1.xml?emailaddress=user@yourdomain.com"
+```
+
+Outlook Autodiscover:
+
+```bash
+curl -sS -X POST \
+  -H "Content-Type: text/xml" \
+  --data '<Autodiscover xmlns="http://schemas.microsoft.com/exchange/autodiscover/outlook/requestschema/2006"><Request><EMailAddress>user@yourdomain.com</EMailAddress><AcceptableResponseSchema>http://schemas.microsoft.com/exchange/autodiscover/outlook/responseschema/2006a</AcceptableResponseSchema></Request></Autodiscover>' \
+  https://yourdomain.com/autodiscover/autodiscover.xml
+```
+
+SRV records:
+
+```bash
+dig +short SRV _imaps._tcp.yourdomain.com
+dig +short SRV _submission._tcp.yourdomain.com
+dig +short SRV _autodiscover._tcp.yourdomain.com
+```
+
+If a client still asks for manual settings, use the values in
+[Common Server Settings](#common-server-settings).
+
 ## Thunderbird Setup
 
 1. Download and install [Mozilla Thunderbird](https://www.thunderbird.net/).
@@ -102,7 +169,7 @@ Use these settings for any email client:
 | **IMAP Server** | mail.yourdomain.com |
 | **IMAP Port** | **993 (SSL/TLS)** ✅ Recommended<br>143 (STARTTLS) |
 | **SMTP Server** | mail.yourdomain.com |
-| **SMTP Port** | 587 (STARTTLS) ✅ Recommended<br>465 (SSL/TLS) |
+| **SMTP Port** | 587 (STARTTLS) ✅ Recommended |
 | **Username** | Your full email address |
 | **Authentication** | Normal password |
 
@@ -110,7 +177,9 @@ Use these settings for any email client:
 
 ## Troubleshooting
 
-- Ensure your firewall allows connections on ports 143, 587, **993**, and 465.
+- Ensure your firewall allows connections on ports 143, 587, and **993**.
+- OpenGovMail exposes SMTP submission on port 587 with STARTTLS. Port 465 is
+  not exposed by the default Compose stack.
 - Verify your email address and password are correct.
 - Check that your mail server's SSL certificate is valid.
 - **If you experience connection issues with port 993, verify that:**

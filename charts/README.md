@@ -6,6 +6,7 @@ This directory contains Helm charts for OpenGovMail services.
 
 - `opengovmail/`: Umbrella chart that aggregates service subcharts.
 - `opengovmail/charts/opendkim/`: OpenDKIM service chart (first migrated service).
+- `opengovmail/charts/autodiscover/`: Thunderbird/Outlook autodiscovery service chart.
 
 ## Conventions
 

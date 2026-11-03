@@ -130,6 +130,28 @@ Delete this file once the values it guards can be derived.
   {{- fail (printf "raven.organizationUnitDomains is required with an external ThunderID: map the ID of each organization unit that receives mail to its domains, main domain first, e.g.\n  raven:\n    organizationUnitDomains:\n      \"<ou-id>\": [\"%s\"]" (include "opengovmail.domain" .)) }}
 {{- end }}
 
+{{- /* Autodiscover's Ingress reuses the cert-manager Secrets from certificate.yaml.
+     If its hosts are not in the effective TLS domain list, clients get a
+     certificate-name mismatch and fall back to manual configuration. Check the
+     effective list (empty global.tls.domains derives both standard hosts). */}}
+{{- $autodiscover := .Values.autodiscover | default dict }}
+{{- if and $autodiscover.enabled (((.Values.autodiscover).ingress).enabled) }}
+{{- $autodiscoverDomains := $autodiscover.domains | default (list (include "opengovmail.domain" .)) }}
+{{- $autodiscoverDomain := first $autodiscoverDomains }}
+{{- $autodiscoverMailHost := ((.Values.global).mailHostname) | default (printf "mail.%s" $autodiscoverDomain) }}
+{{- $hosts := (((.Values.autodiscover).ingress).hosts) | default (list $autodiscoverDomain $autodiscoverMailHost) }}
+{{- $tlsDomains := .Values.global.tls.domains | default (list (include "opengovmail.mailHostname" .) (include "opengovmail.domain" .)) }}
+{{- $secretNames := (((.Values.autodiscover).ingress).tls).secretNames | default list }}
+{{- if not .Values.global.tls.enabled }}
+  {{- fail "autodiscover.ingress.enabled needs global.tls.enabled: its Ingress serves HTTPS and reuses the cert-manager Secrets from certificate.yaml." }}
+{{- end }}
+{{- range $hosts }}
+  {{- if and (not (has . $tlsDomains)) (lt (len $secretNames) (len $hosts)) }}
+    {{- fail (printf "autodiscover ingress host %s is not covered by global.tls.domains (%v). Add it to global.tls.domains, or remove it from autodiscover.ingress.hosts, or point autodiscover.ingress.tls.secretNames at a Secret that covers it." . $tlsDomains) }}
+  {{- end }}
+{{- end }}
+{{- end }}
+
 {{- /* Nextcloud and Tuwunel fetch ThunderID's OIDC discovery with certificate
      verification on. ThunderID generates a self-signed CN=localhost cert unless
      pointed elsewhere, so without this sign-in (and Nextcloud's install) fails. */}}

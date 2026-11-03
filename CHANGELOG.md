@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Email client autodiscovery: Thunderbird autoconfig endpoints, Outlook
+  Autodiscover, RFC 6186 SRV records, and Docker Compose/Helm deployment
+  support.
+
 ## [0.6.1] - 2026-11-17
 
 ### Added
@@ -111,7 +117,6 @@ Helm charts for every service, the Silver to OpenGovMail rename, ThunderID 1.0.1
 
 
 **Full Changelog**: https://github.com/OpenGovMail/OpenGovMail/compare/v.0.3.0...v0.4.0
-
 ## [0.3.0]
 
 Multi-domain support, improved configuration handling, group address validation, Thunder upgrade to 0.27.0, and removal of legacy socketmap/Thunder integration.
