@@ -1,3 +1,4 @@
+{{- if .Values.networkPolicy.enabled }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -12,18 +13,29 @@ spec:
     - Ingress
     - Egress
   ingress:
+    # Milter: only the MTA. A selector that matches no pod silently blocks every
+    # message from being scanned (Postfix falls back to milter_default_action), so
+    # it must match the postfix chart's pod labels.
     - from:
+        {{- range .Values.networkPolicy.milterClients }}
         - podSelector:
             matchLabels:
-              app.kubernetes.io/name: smtp
+              {{- toYaml . | nindent 14 }}
+        {{- end }}
+        # This chart's own `helm test` pod.
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: rspamd-test
+              app.kubernetes.io/instance: {{ .Release.Name }}
       ports:
         - protocol: TCP
-          port: 11332
+          port: {{ .Values.service.milter.targetPort }}
+    # Web UI / controller: ingress controllers (any namespace) and in-cluster users.
     - from:
         - namespaceSelector: {}
       ports:
         - protocol: TCP
-          port: 11334
+          port: {{ .Values.service.webui.targetPort }}
   egress:
     - to:
         - podSelector:
@@ -31,7 +43,7 @@ spec:
               app.kubernetes.io/name: redis
       ports:
         - protocol: TCP
-          port: 6379
+          port: {{ .Values.dependencies.redis.port }}
     - to:
         - podSelector:
             matchLabels:
@@ -39,13 +51,18 @@ spec:
       ports:
         - protocol: UDP
           port: 53
+        - protocol: TCP
+          port: 53
+    {{- if .Values.modules.antivirus.enabled }}
     - to:
         - podSelector:
             matchLabels:
               app.kubernetes.io/name: clamav
       ports:
         - protocol: TCP
-          port: 3310
+          port: {{ .Values.dependencies.clamav.port }}
+    {{- end }}
+    # Cluster DNS, for resolving the Service names above.
     - to:
         - namespaceSelector: {}
       ports:
@@ -53,3 +70,19 @@ spec:
           port: 53
         - protocol: TCP
           port: 53
+    {{- if .Values.networkPolicy.allowInternetEgress }}
+    # rspamd downloads its rule maps over HTTP(S) (maps.rspamd.com) and queries
+    # the public fuzzy-hash spam database on UDP 11335. Without these, scanning
+    # still runs but with stale maps and no fuzzy matches.
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 443
+        - protocol: UDP
+          port: 11335
+    {{- end }}
+{{- end }}
