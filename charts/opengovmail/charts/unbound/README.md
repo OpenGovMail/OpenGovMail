@@ -22,7 +22,7 @@ Key values:
 | `persistence.enabled` | bool | `true` | Enable persistent volume for cache |
 | `persistence.size` | string | `512Mi` | Cache volume size |
 | `service.port` | int | `53` | Service port (UDP) |
-| `configuration` | string | Full unbound.conf | Custom unbound configuration |
+| `configuration` | string | Recursive unbound.conf (see values.yaml) | Mounted over the image's `unbound.conf`. The default resolves recursively (no forwarders, which DNS blocklists reject) with caches sized for a 256Mi limit. Set to `""` to use the image's generated config instead |
 
 ## Usage
 
