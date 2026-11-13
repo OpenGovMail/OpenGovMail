@@ -113,9 +113,14 @@ spec:
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
+            {{- /* rspamd's antivirus module does nothing without this file, so
+                 leaving it out is how modules.antivirus.enabled=false turns off the
+                 ClamAV scan (and the failures when no ClamAV server exists). */}}
+            {{- if .Values.modules.antivirus.enabled }}
             - name: config-static
               mountPath: /etc/rspamd/local.d/antivirus.conf
               subPath: antivirus.conf
+            {{- end }}
             - name: config-static
               mountPath: /etc/rspamd/local.d/classifier-bayes.conf
               subPath: classifier-bayes.conf
