@@ -107,3 +107,14 @@ readinessProbe:
   periodSeconds: 10
   timeoutSeconds: 5
   failureThreshold: 3
+
+networkPolicy:
+  enabled: true
+  # Pods allowed to use the milter port. Must match the MTA's pod labels: the
+  # postfix chart labels its pods app.kubernetes.io/name=postfix. A selector that
+  # matches nothing makes every message skip scanning, silently.
+  milterClients:
+    - app.kubernetes.io/name: postfix
+  # Outbound HTTP(S) for rule-map updates and UDP 11335 for the public fuzzy
+  # hash database.
+  allowInternetEgress: true
