@@ -33,5 +33,5 @@ data:
     enabled = {{ if .Values.modules.metrics_exporter.enabled }}true{{ else }}false{{ end }};
 
   worker-proxy.inc: |
-    bind = "*:{{ .Values.service.milter.port }}";
-    protocol = "milter";
+    bind_socket = "*:{{ .Values.service.milter.port }}";
+    milter = yes;
