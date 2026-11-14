@@ -157,3 +157,79 @@ Hostname Nextcloud is served on.
 {{- define "opengovmail.nextcloudHost" -}}
 {{- required "nextcloud.nextcloud.host is required when nextcloud.enabled" ((.Values.nextcloud).nextcloud).host -}}
 {{- end }}
+
+{{/*
+Job that registers an OAuth client in ThunderID, or updates it on upgrade, through
+files/register-oidc-client.py. A Job rather than thunderid.declarativeResources,
+because that single mount already carries ThunderID's TLS certificate, and the
+setup job is pre-install only. It authenticates as raven's m2m client, which
+already holds the system permission.
+
+Takes: ctx, name, clientId, secretName (holds clientSecret), job (the registerJob
+values: ouHandle, authFlowHandle, resourceIdentifier, image, resources), app (the
+application body without ouId, authFlowId, clientId or clientSecret), and optionally
+requiredAttributes: when set, attributes the allowed user types do not declare are
+dropped from app, and the render-time list must all be declared.
+*/}}
+{{- define "opengovmail.oidcRegisterJob" -}}
+{{- $ctx := .ctx -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $ctx.Release.Name }}-{{ .name }}-oidc-register
+  namespace: {{ $ctx.Release.Namespace }}
+  labels:
+    {{- include "opengovmail.labels" $ctx | nindent 4 }}
+    app.kubernetes.io/component: {{ .name }}-oidc-register
+  annotations:
+    # post-install so ThunderID is up and its bootstrap has run.
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "5"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: 10
+  template:
+    metadata:
+      labels:
+        {{- include "opengovmail.selectorLabels" $ctx | nindent 8 }}
+        app.kubernetes.io/component: {{ .name }}-oidc-register
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: register
+          image: {{ .job.image.repository }}:{{ .job.image.tag }}
+          env:
+            - name: THUNDER_URL
+              value: {{ include "opengovmail.thunderUrl" $ctx | quote }}
+            - name: CLIENT_ID
+              value: {{ .clientId | quote }}
+            - name: CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .secretName }}
+                  key: clientSecret
+            - name: OU_HANDLE
+              value: {{ .job.ouHandle | quote }}
+            - name: AUTH_FLOW_HANDLE
+              value: {{ .job.authFlowHandle | quote }}
+            - name: RESOURCE
+              value: {{ .job.resourceIdentifier | quote }}
+            - name: APP_JSON
+              value: {{ .app | toJson | quote }}
+            {{- with .requiredAttributes }}
+            - name: PRUNE_USER_ATTRIBUTES
+              value: {{ join "," . | quote }}
+            {{- end }}
+            - name: RAVEN_CLIENT_ID
+              value: {{ ((($ctx.Values.global).ravenIdp).clientId) | default "RAVEN_SYSTEM" | quote }}
+            - name: RAVEN_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ ((($ctx.Values.global).ravenIdp).secretName) | default "opengovmail-raven-idp" }}
+                  key: clientSecret
+          resources:
+            {{- toYaml .job.resources | nindent 12 }}
+          command: ["python3", "-c"]
+          args:
+            - {{ $ctx.Files.Get "files/register-oidc-client.py" | quote }}
+{{- end }}

@@ -1,0 +1,63 @@
+{{- if and .Values.tuwunel.enabled .Values.tuwunel.oidc.enabled }}
+{{- /*
+Registers Tuwunel as an OAuth client in ThunderID (opengovmail.oidcRegisterJob) and
+creates the Secret the homeserver reads its client secret from.
+
+The Matrix localpart comes from the userinfo username claim, the same name raven
+signs mail in with, so alice@<domain> chats as @alice:<domain>. ThunderID releases
+userinfo claims only when they are listed under userInfo and mapped to a requested
+scope, hence username under profile.
+*/}}
+{{- $oidc := .Values.tuwunel.oidc }}
+{{- $secretName := $oidc.existingSecret }}
+{{- $clientSecret := include "opengovmail.keptSecret" (dict "ctx" . "secret" $secretName "key" "clientSecret" "value" (.Values.tuwunelDeps.clientSecret | default "") "flag" "tuwunelDeps.clientSecret" "owner" "ThunderID's Tuwunel application") }}
+{{- $host := .Values.tuwunel.host | default (printf "matrix.%s" (.Values.tuwunel.serverName | default (include "opengovmail.domain" .))) }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $secretName }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "opengovmail.labels" . | nindent 4 }}
+    app.kubernetes.io/component: tuwunel-idp
+  annotations:
+    # Before the homeserver starts, so its secret volume can mount.
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-6"
+    "helm.sh/hook-delete-policy": before-hook-creation
+type: Opaque
+data:
+  clientSecret: {{ $clientSecret | b64enc | quote }}
+---
+{{- $job := .Values.tuwunelDeps.registerJob }}
+{{- $attrs := list "username" "email" "name" "given_name" "family_name" }}
+{{- $app := dict
+  "name" "Matrix chat"
+  "description" "OpenGovMail chat homeserver (Tuwunel)"
+  "type" "browser"
+  "isRegistrationFlowEnabled" false
+  "allowedUserTypes" $job.allowedUserTypes
+  "userAttributes" $attrs
+  "inboundAuthConfig" (list (dict
+    "type" "oauth2"
+    "config" (dict
+      "redirectUris" (list (printf "https://%s/_matrix/client/unstable/login/sso/callback/%s" $host $oidc.clientId))
+      "grantTypes" (list "authorization_code")
+      "responseTypes" (list "code")
+      "pkceRequired" true
+      "publicClient" false
+      "tokenEndpointAuthMethod" "client_secret_post"
+      "scopes" (list "openid" "profile" "email")
+      "scopeClaims" (dict
+        "profile" (list "username" "name" "given_name" "family_name")
+        "email" (list "email"))
+      "token" (dict
+        "idToken" (dict "userAttributes" $attrs "validityPeriod" 3600)
+        "accessToken" (dict "userAttributes" $attrs "validityPeriod" 3600))
+      "userInfo" (dict "userAttributes" $attrs))))
+}}
+{{- /* Tuwunel always sends a PKCE verifier and posts its credentials in the body.
+     User types differ per install, so attributes they lack are dropped; only
+     username is essential, since the Matrix ID is named after it. */}}
+{{ include "opengovmail.oidcRegisterJob" (dict "ctx" . "name" "tuwunel" "clientId" $oidc.clientId "secretName" $secretName "job" $job "app" $app "requiredAttributes" (list "username")) }}
+{{- end }}
