@@ -56,6 +56,8 @@ data:
         "accessToken" (dict "userAttributes" $attrs "validityPeriod" 3600))
       "userInfo" (dict "userAttributes" $attrs))))
 }}
-{{- /* Tuwunel always sends a PKCE verifier and posts its credentials in the body. */}}
-{{ include "opengovmail.oidcRegisterJob" (dict "ctx" . "name" "tuwunel" "clientId" $oidc.clientId "secretName" $secretName "job" $job "app" $app) }}
+{{- /* Tuwunel always sends a PKCE verifier and posts its credentials in the body.
+     User types differ per install, so attributes they lack are dropped; only
+     username is essential, since the Matrix ID is named after it. */}}
+{{ include "opengovmail.oidcRegisterJob" (dict "ctx" . "name" "tuwunel" "clientId" $oidc.clientId "secretName" $secretName "job" $job "app" $app "requiredAttributes" (list "username")) }}
 {{- end }}

@@ -167,7 +167,9 @@ already holds the system permission.
 
 Takes: ctx, name, clientId, secretName (holds clientSecret), job (the registerJob
 values: ouHandle, authFlowHandle, resourceIdentifier, image, resources), app (the
-application body without ouId, authFlowId, clientId or clientSecret).
+application body without ouId, authFlowId, clientId or clientSecret), and optionally
+requiredAttributes: when set, attributes the allowed user types do not declare are
+dropped from app, and the render-time list must all be declared.
 */}}
 {{- define "opengovmail.oidcRegisterJob" -}}
 {{- $ctx := .ctx -}}
@@ -214,6 +216,10 @@ spec:
               value: {{ .job.resourceIdentifier | quote }}
             - name: APP_JSON
               value: {{ .app | toJson | quote }}
+            {{- with .requiredAttributes }}
+            - name: PRUNE_USER_ATTRIBUTES
+              value: {{ join "," . | quote }}
+            {{- end }}
             - name: RAVEN_CLIENT_ID
               value: {{ ((($ctx.Values.global).ravenIdp).clientId) | default "RAVEN_SYSTEM" | quote }}
             - name: RAVEN_CLIENT_SECRET

@@ -79,6 +79,30 @@ app = json.loads(os.environ["APP_JSON"])
 app["ouId"] = ou["id"]
 app["authFlowId"] = flow_id
 oauth = app["inboundAuthConfig"][0]["config"]
+
+# ThunderID rejects an attribute that none of the allowed user types declares, and
+# user types are defined per install. With PRUNE_USER_ATTRIBUTES set, drop the ones
+# they lack, but fail if any listed there as required is missing.
+if os.environ.get("PRUNE_USER_ATTRIBUTES"):
+    by_name = {t["name"]: t["id"] for t in list_all("/user-types", "types")}
+    declared = set()
+    for name in app.get("allowedUserTypes") or []:
+        if name not in by_name:
+            sys.exit(f"no user type named {name}")
+        _, user_type = call("/user-types/" + by_name[name], token)
+        declared |= set((user_type.get("schema") or {}).keys())
+    missing = [a for a in os.environ["PRUNE_USER_ATTRIBUTES"].split(",") if a not in declared]
+    if missing:
+        sys.exit(f"user types {app['allowedUserTypes']} declare no {', '.join(missing)} attribute")
+    keep = lambda attrs: [a for a in attrs if a in declared]
+    app["userAttributes"] = keep(app.get("userAttributes") or [])
+    for holder in (oauth.get("token", {}).get("idToken"), oauth.get("token", {}).get("accessToken"),
+                   oauth.get("userInfo")):
+        if holder and "userAttributes" in holder:
+            holder["userAttributes"] = keep(holder["userAttributes"])
+    for scope, claims in (oauth.get("scopeClaims") or {}).items():
+        oauth["scopeClaims"][scope] = keep(claims)
+    print("user attributes:", ", ".join(app["userAttributes"]))
 oauth["clientId"] = client_id
 oauth["clientSecret"] = os.environ["CLIENT_SECRET"]
 
