@@ -1,0 +1,83 @@
+{{- if .Values.ingress.enabled }}
+{{- $host := include "tuwunel.host" . }}
+{{- $annotations := include "tuwunel.ingressAnnotations" . | trim }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "tuwunel.fullname" . }}
+  labels:
+    {{- include "tuwunel.labels" . | nindent 4 }}
+  {{- with $annotations }}
+  annotations:
+    {{- . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  tls:
+    - secretName: {{ include "tuwunel.tlsSecretName" . }}
+      hosts:
+        - {{ $host }}
+  rules:
+    - host: {{ $host }}
+      http:
+        paths:
+          # Client API, plus federation (delegated to 443 through .well-known)
+          - path: /_matrix
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "tuwunel.fullname" . }}
+                port:
+                  name: http
+          - path: /_tuwunel
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "tuwunel.fullname" . }}
+                port:
+                  name: http
+          - path: /.well-known/matrix
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "tuwunel.fullname" . }}
+                port:
+                  name: http
+{{- if .Values.wellKnown.enabled }}
+{{- $serverName := include "tuwunel.serverName" . }}
+---
+# Only /.well-known/matrix on the bare domain, so anything else hosted there is
+# left alone.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "tuwunel.fullname" . }}-wellknown
+  labels:
+    {{- include "tuwunel.labels" . | nindent 4 }}
+  {{- with $annotations }}
+  annotations:
+    {{- . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  tls:
+    - secretName: {{ include "tuwunel.wellKnownTlsSecretName" . }}
+      hosts:
+        - {{ $serverName }}
+  rules:
+    - host: {{ $serverName }}
+      http:
+        paths:
+          - path: /.well-known/matrix
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "tuwunel.fullname" . }}
+                port:
+                  name: http
+{{- end }}
+{{- end }}

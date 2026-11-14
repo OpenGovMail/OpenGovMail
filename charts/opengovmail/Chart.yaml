@@ -34,6 +34,10 @@ dependencies:
     version: 0.1.0
     repository: file://charts/raven
     condition: raven.enabled
+  - name: tuwunel
+    version: 0.1.0
+    repository: file://charts/tuwunel
+    condition: tuwunel.enabled
   # ThunderID identity server (upstream OCI chart). Mirrors the docker-compose
   # `thunderid`/`thunderid-setup`/`thunderid-db-init` services.
   #

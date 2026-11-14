@@ -54,3 +54,8 @@ nextcloud:
       - secretName: nextcloud-tls
         hosts:
           - cloud.example.com
+
+# Matrix chat. Users sign in through ThunderID: alice@example.com is
+# @alice:example.com. Needs DNS for matrix.example.com and example.com.
+tuwunel:
+  enabled: true
