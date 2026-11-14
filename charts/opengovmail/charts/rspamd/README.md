@@ -18,7 +18,7 @@ helm upgrade --install opengovmail ./charts/opengovmail \
   --set redis.enabled=true \
   --set unbound.enabled=true \
   --set rspamd.enabled=true \
-  --set 'rspamd.webui.password=mypassword'
+  --set-string 'rspamd.webui.password=$2$...'   # hash from `rspamadm pw`, see Web UI Access
 ```
 
 ## Configuration
@@ -48,7 +48,7 @@ Key values:
 | `service.milter.port` | int | `11332` | SMTP milter port |
 | `service.webui.port` | int | `11334` | Web UI port |
 | `service.webui.enabled` | bool | `true` | Enable web UI service |
-| `webui.password` | string | `` | Web UI password (empty = disabled) |
+| `webui.password` | string | `` | Web UI password, ideally a `rspamadm pw` hash. Empty = no password, and the UI answers 401 to every request from outside the pod |
 
 ## Override Dependency Hosts
 
@@ -64,13 +64,18 @@ helm upgrade --install opengovmail ./charts/opengovmail \
 
 ## Web UI Access
 
-Port-forward to rspamd web UI:
+The UI needs `webui.password`. Hash the password with rspamd's own tool and pass the hash:
 
 ```bash
-kubectl port-forward -n mail svc/opengovmail-rspamd 11334:11334
+kubectl exec -it -n <namespace> statefulset/<release>-rspamd -c rspamd -- rspamadm pw
+helm upgrade ... --set-string 'rspamd.webui.password=$2$...'
 ```
 
-Then access: `http://localhost:11334/` with configured password.
+Then port-forward and open `http://localhost:11334/`:
+
+```bash
+kubectl port-forward -n <namespace> svc/rspamd 11334:11334
+```
 
 ## Testing
 

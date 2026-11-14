@@ -89,6 +89,10 @@ modules:
     enabled: true
 
 webui:
+  # Web UI password. Use a hash, not the plain password:
+  #   kubectl exec -it <rspamd-pod> -- rspamadm pw
+  # Empty leaves the controller without a password, which answers 401 to every
+  # request from outside the pod (port-forwarded or ingress traffic included).
   password: ""
   passwordEncoding: plaintext
 

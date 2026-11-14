@@ -15,6 +15,9 @@ spec:
       annotations:
         checksum/config-static: {{ include (print $.Template.BasePath "/configmap-rspamd.yaml") . | sha256sum }}
         checksum/config-options: {{ include (print $.Template.BasePath "/configmap-options.yaml") . | sha256sum }}
+        {{- if .Values.webui.password }}
+        checksum/webui: {{ include (print $.Template.BasePath "/secret-webui.yaml") . | sha256sum }}
+        {{- end }}
       {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
       {{- end }}
@@ -128,6 +131,11 @@ spec:
             - name: config-static
               mountPath: /etc/rspamd/local.d/worker-proxy.inc
               subPath: worker-proxy.inc
+            {{- if .Values.webui.password }}
+            - name: config-static
+              mountPath: /etc/rspamd/local.d/worker-controller.inc
+              subPath: worker-controller.inc
+            {{- end }}
             - name: config-options
               mountPath: /etc/rspamd/local.d/options.inc
               subPath: options.inc
