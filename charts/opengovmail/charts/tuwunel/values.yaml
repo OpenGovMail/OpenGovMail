@@ -88,6 +88,66 @@ wellKnown:
   enabled: true
   tlsSecretName: ""
 
+# Voice and video calls (Element Call / MatrixRTC). Tuwunel carries no media
+# itself: this deploys a LiveKit SFU, which relays audio and video, and
+# lk-jwt-service, which gives signed-in users a LiveKit token. Tuwunel then
+# advertises them through livekit_url. Without this, every call fails with
+# MISSING_MATRIX_RTC_TRANSPORT. Needs DNS for the host and two open ports; see
+# README.md.
+matrixRtc:
+  enabled: false
+  # Hostname for lk-jwt-service and LiveKit's signalling. Empty uses
+  # matrix-rtc.<serverName>.
+  host: ""
+  # TLS Secret for the host. Empty uses <host-with-dashes>-tls, issued by
+  # cert-manager through global.tls.issuer.
+  tlsSecretName: ""
+  # Secret holding the LiveKit API key and secret under apiKey and apiSecret.
+  # Empty creates <fullname>-rtc with values generated on first install and kept.
+  existingSecret: ""
+
+  livekit:
+    image:
+      repository: livekit/livekit-server
+      tag: v1.13.11
+      pullPolicy: IfNotPresent
+    # Media ports, bound on the node with hostPort so LiveKit sees the client's
+    # real address. LiveKit advertises these numbers, so the node must expose
+    # the same ones: open both in the firewall.
+    #   tcpPort: ICE over TCP, for networks that block UDP
+    #   udpPort: all UDP media, multiplexed on one port
+    tcpPort: 7881
+    udpPort: 7882
+    # Address advertised to clients for media. Empty uses the node's own IP
+    # (status.hostIP), which is the public address on a VPS. Set it when the
+    # node's IP is private and traffic is forwarded from a public one.
+    nodeIP: ""
+    # Find the public address over STUN instead, for hosts behind 1:1 NAT such
+    # as AWS or GCP. nodeIP is ignored while this is on.
+    useExternalIP: false
+    logLevel: info
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: "2"
+        memory: 1Gi
+
+  jwt:
+    image:
+      repository: ghcr.io/element-hq/lk-jwt-service
+      tag: "0.10.0"
+      pullPolicy: IfNotPresent
+    logLevel: info
+    resources:
+      requests:
+        cpu: 25m
+        memory: 32Mi
+      limits:
+        cpu: 500m
+        memory: 128Mi
+
 # Extra TUWUNEL_* environment variables, which override the config file, e.g.
 #   - name: TUWUNEL_REGISTRATION__DISPLAYNAME_SUFFIX
 #     value: ""

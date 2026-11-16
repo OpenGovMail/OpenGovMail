@@ -1,0 +1,48 @@
+{{- if and .Values.matrixRtc.enabled .Values.ingress.enabled }}
+{{- $host := include "tuwunel.rtcHost" . }}
+{{- $annotations := include "tuwunel.ingressAnnotations" . | trim }}
+{{- /*
+The URL Tuwunel advertises as livekit_url. Clients ask lk-jwt-service for a
+token on these paths, then open LiveKit's signalling WebSocket on the same host.
+/sfu_webhook stays in-cluster.
+*/}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "tuwunel.fullname" . }}-rtc
+  labels:
+    {{- include "tuwunel.labels" . | nindent 4 }}
+    app.kubernetes.io/component: rtc
+  {{- with $annotations }}
+  annotations:
+    {{- . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  tls:
+    - secretName: {{ include "tuwunel.rtcTlsSecretName" . }}
+      hosts:
+        - {{ $host }}
+  rules:
+    - host: {{ $host }}
+      http:
+        paths:
+          {{- range list "/sfu/get" "/get_token" "/delegate_delayed_leave" "/healthz" }}
+          - path: {{ . }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "tuwunel.jwtName" $ }}
+                port:
+                  name: http
+          {{- end }}
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "tuwunel.livekitName" . }}
+                port:
+                  name: http
+{{- end }}

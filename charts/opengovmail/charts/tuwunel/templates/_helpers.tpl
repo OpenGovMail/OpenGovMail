@@ -57,6 +57,45 @@ ThunderID issuer. Mirrors opengovmail.thunderUrl, which a subchart cannot call.
 {{- .Values.wellKnown.tlsSecretName | default (printf "%s-tls" (include "tuwunel.serverName" . | replace "." "-")) -}}
 {{- end }}
 
+{{/*
+MatrixRTC (calls). The LiveKit and lk-jwt-service pods need their own
+app.kubernetes.io/name: the homeserver's Service selects on name and instance
+alone, and would otherwise send Matrix traffic to them.
+*/}}
+{{- define "tuwunel.rtcHost" -}}
+{{- .Values.matrixRtc.host | default (printf "matrix-rtc.%s" (include "tuwunel.serverName" .)) -}}
+{{- end }}
+
+{{- define "tuwunel.rtcUrl" -}}
+{{- printf "https://%s" (include "tuwunel.rtcHost" .) -}}
+{{- end }}
+
+{{- define "tuwunel.rtcTlsSecretName" -}}
+{{- .Values.matrixRtc.tlsSecretName | default (printf "%s-tls" (include "tuwunel.rtcHost" . | replace "." "-")) -}}
+{{- end }}
+
+{{- define "tuwunel.rtcSecretName" -}}
+{{- .Values.matrixRtc.existingSecret | default (printf "%s-rtc" (include "tuwunel.fullname" .)) -}}
+{{- end }}
+
+{{- define "tuwunel.livekitName" -}}
+{{- printf "%s-livekit" (include "tuwunel.fullname" .) | trunc 63 | trimSuffix "-" -}}
+{{- end }}
+
+{{- define "tuwunel.jwtName" -}}
+{{- printf "%s-rtc-jwt" (include "tuwunel.fullname" .) | trunc 63 | trimSuffix "-" -}}
+{{- end }}
+
+{{- define "tuwunel.livekitSelectorLabels" -}}
+app.kubernetes.io/name: {{ printf "%s-livekit" (include "tuwunel.name" .) }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
+{{- define "tuwunel.jwtSelectorLabels" -}}
+app.kubernetes.io/name: {{ printf "%s-rtc-jwt" (include "tuwunel.name" .) }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
 {{- define "tuwunel.ingressAnnotations" -}}
 {{- if and (((.Values.global).tls).enabled) (((.Values.global).tls).issuer) }}
 cert-manager.io/cluster-issuer: {{ .Values.global.tls.issuer }}

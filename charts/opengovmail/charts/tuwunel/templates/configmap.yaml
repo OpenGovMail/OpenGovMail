@@ -24,6 +24,11 @@ data:
     [global.well_known]
     client = {{ printf "https://%s" $host | quote }}
     server = {{ printf "%s:443" $host | quote }}
+    {{- if .Values.matrixRtc.enabled }}
+    # Fills rtc/transports and the rtc_foci key in .well-known, which Element Call
+    # reads to find the call backend.
+    livekit_url = {{ include "tuwunel.rtcUrl" . | quote }}
+    {{- end }}
 
     [global.registration]
     enable = false
