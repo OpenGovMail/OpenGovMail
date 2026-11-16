@@ -481,3 +481,29 @@ nextcloudDeps:
       limits:
         cpu: 200m
         memory: 128Mi
+
+# Matrix homeserver for chat (charts/tuwunel). Users sign in through ThunderID with
+# the same account as their mailbox: alice@<domain> becomes @alice:<domain>.
+# Needs a ThunderID (bundled or global.thunder.url) and raven, whose credentials
+# register the client. See charts/tuwunel/README.md for DNS and backups.
+tuwunel:
+  enabled: false
+
+# ThunderID registration for Tuwunel, rendered by templates/tuwunel-oidc.yaml.
+# Separate from the tuwunel block because that one is the subchart's scope.
+tuwunelDeps:
+  # Empty generates one on first install and keeps it. Set it for helm template.
+  clientSecret: ""
+  # Same meaning as nextcloudDeps.registerJob.
+  registerJob:
+    ouHandle: default
+    authFlowHandle: default-flow
+    # User types that may sign in to chat. Add the type of every mail domain's OU.
+    allowedUserTypes: ["Person"]
+    resourceIdentifier: "https://localhost:8090/mcp"
+    image:
+      repository: python
+      tag: "3.12-alpine"
+    resources:
+      requests: {cpu: 25m, memory: 32Mi}
+      limits: {cpu: 200m, memory: 64Mi}

@@ -1,0 +1,60 @@
+{{- $host := include "tuwunel.host" . -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "tuwunel.fullname" . }}
+  labels:
+    {{- include "tuwunel.labels" . | nindent 4 }}
+data:
+  # Secrets are not in here: the OIDC client secret is read from a mounted file.
+  tuwunel.toml: |
+    [global]
+    # Fixed for the life of the database.
+    server_name = {{ include "tuwunel.serverName" . | quote }}
+    database_path = "/var/lib/tuwunel"
+
+    [global.http]
+    max_request_size = {{ .Values.maxRequestSize | quote }}
+
+    [global.http.listen]
+    address = ["0.0.0.0"]
+    port = {{ .Values.service.port }}
+
+    # Also served on the server name itself by the -wellknown Ingress.
+    [global.well_known]
+    client = {{ printf "https://%s" $host | quote }}
+    server = {{ printf "%s:443" $host | quote }}
+
+    [global.registration]
+    enable = false
+    # The default appends an emoji to every new display name.
+    displayname_suffix = ""
+
+    [global.federation]
+    enable = {{ .Values.federation.enabled }}
+
+    [global.federation.keys]
+    trusted_servers = {{ .Values.federation.trustedServers | toJson }}
+    {{- if .Values.backup.enabled }}
+
+    [global.database.backup]
+    path = "/var/lib/tuwunel-backups"
+    keep = {{ .Values.backup.keep }}
+    {{- end }}
+    {{- if .Values.oidc.enabled }}
+
+    [global.authentication.login]
+    # ThunderID is the only way in.
+    with_password = false
+
+    [[global.identity_provider]]
+    brand = "ThunderID"
+    name = {{ .Values.oidc.name | quote }}
+    client_id = {{ .Values.oidc.clientId | quote }}
+    client_secret_file = "/etc/tuwunel/oidc/clientSecret"
+    issuer_url = {{ include "tuwunel.issuerUrl" . | quote }}
+    scope = {{ .Values.oidc.scope | toJson }}
+    userid_claims = {{ .Values.oidc.useridClaims | toJson }}
+    # A clash is an error rather than a random ID nobody can find.
+    unique_id_fallbacks = false
+    {{- end }}

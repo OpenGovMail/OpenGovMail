@@ -1,0 +1,152 @@
+image:
+  repository: ghcr.io/matrix-construct/tuwunel
+  # Empty uses the chart's appVersion. Pinned, not :latest, so an upgrade is a
+  # deliberate chart bump.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+nameOverride: ""
+fullnameOverride: ""
+
+# The Matrix server name: the part after the colon in @alice:example.com.
+# Empty uses global.domain, so Matrix IDs match email addresses.
+#
+# It can NEVER change after the first start without wiping the database.
+serverName: ""
+
+# Hostname Tuwunel is served on. Empty uses matrix.<serverName>.
+host: ""
+
+# Federation with other Matrix servers. Off until the federation policy is
+# decided (#366). Turning it on later is safe; turning it off after rooms have
+# federated is not.
+federation:
+  enabled: false
+  trustedServers: ["matrix.org"]
+
+# Largest upload accepted, e.g. an image or file sent in chat. Tuwunel refuses to
+# start below 10 MB. Any proxy in front must accept bodies at least this large.
+maxRequestSize: "24 MiB"
+
+# Sign-in through ThunderID. Password login and password registration are off
+# while this is enabled, so ThunderID is the only way in.
+#
+# The umbrella chart registers the client in ThunderID and creates the Secret
+# (templates/tuwunel-oidc.yaml), so standalone installs must do both themselves.
+oidc:
+  enabled: true
+  clientId: TUWUNEL
+  # Secret holding the client secret under the key clientSecret.
+  existingSecret: tuwunel-idp
+  # ThunderID's issuer. Empty uses global.thunder.url, else the bundled
+  # https://<global.domain>:8090. Must never change: Tuwunel ties accounts to it.
+  issuerUrl: ""
+  # Label on the sign-in button.
+  name: ThunderID
+  scope: ["openid", "profile", "email"]
+  # Claims the Matrix localpart is taken from on first sign-in, in order.
+  # ThunderID's username is the mailbox local part, so alice@example.com becomes
+  # @alice:example.com. The email claim is the fallback.
+  useridClaims: ["username", "email"]
+
+# Online database backups, written to their own volume. Run one from the admin
+# room with "!admin server backup-database". See README.md for restoring.
+backup:
+  enabled: true
+  # Backups kept; the oldest is deleted after each new one.
+  keep: 3
+  persistence:
+    storageClass: ""
+    size: 5Gi
+
+persistence:
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  # RocksDB database and uploaded media.
+  size: 10Gi
+
+service:
+  type: ClusterIP
+  port: 8008
+
+ingress:
+  enabled: true
+  # Empty uses the cluster's default IngressClass.
+  className: ""
+  annotations: {}
+  # TLS Secret for the host. Empty uses <host-with-dashes>-tls, issued by
+  # cert-manager through global.tls.issuer.
+  tlsSecretName: ""
+
+# Serves https://<serverName>/.well-known/matrix/{client,server} from Tuwunel, so
+# clients find the server from the user's domain alone. The domain must resolve to
+# this cluster. Turn it off if the domain is hosted elsewhere, and serve the same
+# JSON from there.
+wellKnown:
+  enabled: true
+  tlsSecretName: ""
+
+# Extra TUWUNEL_* environment variables, which override the config file, e.g.
+#   - name: TUWUNEL_REGISTRATION__DISPLAYNAME_SUFFIX
+#     value: ""
+extraEnv: []
+
+podAnnotations: {}
+
+# The image sets no user and has no shell.
+podSecurityContext:
+  runAsUser: 1000
+  runAsGroup: 1000
+  runAsNonRoot: true
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi
+
+# The listener opens only after database migrations finish, which can be slow
+# after an upgrade. Allows up to 30 minutes.
+startupProbe:
+  httpGet:
+    path: /_matrix/client/versions
+    port: http
+  periodSeconds: 10
+  failureThreshold: 180
+
+livenessProbe:
+  httpGet:
+    path: /_matrix/client/versions
+    port: http
+  periodSeconds: 30
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /_matrix/client/versions
+    port: http
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+# Room for RocksDB to flush on shutdown.
+terminationGracePeriodSeconds: 120
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
