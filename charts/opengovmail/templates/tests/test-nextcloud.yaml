@@ -1,0 +1,25 @@
+{{- if .Values.nextcloud.enabled }}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ .Release.Name }}-nextcloud-test
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "opengovmail.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+spec:
+  restartPolicy: Never
+  containers:
+    - name: test-status
+      image: busybox:1.36
+      command:
+        - /bin/sh
+        - -c
+        - |
+          # Nextcloud rejects requests whose Host is not a trusted domain.
+          out=$(wget -qO- -T 10 --header "Host: {{ include "opengovmail.nextcloudHost" . }}" \
+            "http://{{ include "nextcloud.fullname" .Subcharts.nextcloud }}:{{ .Values.nextcloud.service.port }}/status.php") || exit 1
+          echo "$out"
+          echo "$out" | grep -q '"installed":true'
+{{- end }}

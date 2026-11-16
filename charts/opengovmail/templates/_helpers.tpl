@@ -123,14 +123,16 @@ only one of the two consumers would see.
 A credential generated once and kept: explicit value, else the one already in the
 Secret, else random. Every consumer reads the Secret, so one render is enough.
 A changed explicit value fails, because the consumer only took the old one on first
-start. lookup sees nothing under helm template, so set the value explicitly there.
-Takes: ctx, secret, key, value, flag (the values path), owner (who holds the old one).
+start, unless rotatable says it rereads the Secret on every start.
+lookup sees nothing under helm template, so set the value explicitly there.
+Takes: ctx, secret, key, value, flag (the values path), owner (who holds the old one),
+rotatable (optional).
 */}}
 {{- define "opengovmail.keptSecret" -}}
 {{- $existing := lookup "v1" "Secret" .ctx.Release.Namespace .secret -}}
 {{- $current := "" -}}
 {{- if and $existing (index ($existing.data | default dict) .key) }}{{- $current = index $existing.data .key | b64dec -}}{{- end -}}
-{{- if and .value $current (ne .value $current) -}}
+{{- if and .value $current (ne .value $current) (not .rotatable) -}}
 {{- fail (printf "%s differs from the value already in Secret %s. %s set the old value on first start and will not pick up a new one. Leave %s empty to keep the current value. To rotate it, change it in %s first, then delete Secret %s and upgrade with the new value." .flag .secret .owner .flag .owner .secret) -}}
 {{- end -}}
 {{- .value | default $current | default (randAlphaNum 40) -}}
