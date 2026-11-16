@@ -127,6 +127,7 @@ For the full walkthrough — creating a user schema, assigning it to an organiza
   
 
 - You can also set up a Mail User Agent (MUA) like Thunderbird to send and receive emails. Follow the instructions in [Mail User Agent Setup](docs/Mail-User-Agent-Setup.md).
+- To use the shared calendars from Thunderbird, Outlook, a phone or a tablet, follow [Calendar Client Setup](docs/Calendar-Client-Setup.md).
 
 ## Open Source Components
 

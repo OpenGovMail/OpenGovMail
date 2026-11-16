@@ -39,6 +39,9 @@ spec:
               {{- if .Values.hostPort.enabled }}
               hostPort: {{ .Values.service.ports.submission }}
               {{- end }}
+            # In-cluster relay; never a hostPort.
+            - name: relay
+              containerPort: 10025
           env:
             - name: MYHOSTNAME
               value: {{ include "opengovmail.mailHostname" . | quote }}

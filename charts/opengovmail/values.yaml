@@ -346,10 +346,11 @@ nextcloud:
       fromAddress: nextcloud
       domain: ""
       smtp:
-        # In-cluster postfix. Plain 25 on the pod network, no auth.
-        host: postfix
+        # Postfix's in-cluster relay: plain, no auth, and it relays to outside domains.
+        # Port 25 offers STARTTLS with a certificate for the public host.
+        host: postfix-relay
         secure: ""
-        port: 25
+        port: 10025
         authtype: ""
         name: ""
         password: ""
@@ -361,6 +362,15 @@ nextcloud:
       secretName: nextcloud-admin
       usernameKey: username
       passwordKey: password
+
+    # CalDAV/CardDAV discovery redirects, written by templates/nextcloud-apache.yaml.
+    extraVolumes:
+      - name: apache-well-known
+        configMap: {name: nextcloud-apache}
+    extraVolumeMounts:
+      - name: apache-well-known
+        mountPath: /etc/apache2/conf-enabled/opengovmail-well-known.conf
+        subPath: well-known.conf
 
     # Credentials for the ThunderID provider, written by templates/nextcloud-oidc.yaml.
     extraEnv:
@@ -386,6 +396,8 @@ nextcloud:
         # The image reads the admin password only at first install, so set it on every
         # start. The Secret wins over a password changed in the UI.
         OC_PASS="$NEXTCLOUD_ADMIN_PASSWORD" php occ user:resetpassword --password-from-env "$NEXTCLOUD_ADMIN_USER"
+        # group-provisioning makes ThunderID the owner of group membership: each sign-in
+        # drops the user from Nextcloud groups ThunderID does not send, admin included.
         php occ user_oidc:provider ThunderID \
           --clientid="$OIDC_CLIENT_ID" \
           --clientsecret="$OIDC_CLIENT_SECRET" \
@@ -394,7 +406,8 @@ nextcloud:
           --mapping-uid=sub \
           --mapping-display-name=name \
           --mapping-email=email \
-          --mapping-groups=groups
+          --mapping-groups=groups \
+          --group-provisioning=1
 
   # Bundled databases stay off: both pull from bitnamilegacy, archived Aug 2025.
   internalDatabase:
