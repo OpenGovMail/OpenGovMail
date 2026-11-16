@@ -518,6 +518,8 @@ nextcloudDeps:
 # the same account as their mailbox: alice@<domain> becomes @alice:<domain>.
 # Needs a ThunderID (bundled or global.thunder.url) and raven, whose credentials
 # register the client. See charts/tuwunel/README.md for DNS and backups.
+# Calls need tuwunel.matrixRtc.enabled too, plus DNS and two open ports; see the
+# README's Calls section.
 tuwunel:
   enabled: false
 

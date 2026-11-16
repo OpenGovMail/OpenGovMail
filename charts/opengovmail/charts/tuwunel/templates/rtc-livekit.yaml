@@ -1,0 +1,160 @@
+{{- if .Values.matrixRtc.enabled }}
+{{- $lk := .Values.matrixRtc.livekit }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "tuwunel.livekitName" . }}
+  labels:
+    {{- include "tuwunel.labels" . | nindent 4 }}
+    app.kubernetes.io/component: livekit
+data:
+  # The API key and secret come from LIVEKIT_KEYS, not this file.
+  livekit.yaml: |
+    port: 7880
+    rtc:
+      tcp_port: {{ $lk.tcpPort }}
+      # One port for all UDP media; no port range, so the firewall opens just this.
+      udp_port: {{ $lk.udpPort }}
+      use_external_ip: {{ $lk.useExternalIP }}
+      enable_loopback_candidate: false
+    room:
+      # Only lk-jwt-service opens rooms, and only for users of this homeserver.
+      # Left on, LiveKit would open a room for anyone holding a valid token.
+      auto_create: false
+    logging:
+      level: {{ $lk.logLevel }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tuwunel.livekitName" . }}
+  labels:
+    {{- include "tuwunel.labels" . | nindent 4 }}
+    app.kubernetes.io/component: livekit
+spec:
+  # hostPort allows one pod per node, so a rolling update would never schedule.
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "tuwunel.livekitSelectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ $lk | toJson | sha256sum }}
+      labels:
+        {{- include "tuwunel.livekitSelectorLabels" . | nindent 8 }}
+    spec:
+      {{- with (.Values.imagePullSecrets | default ((.Values.global).imagePullSecrets)) }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: livekit
+          image: "{{ $lk.image.repository }}:{{ $lk.image.tag }}"
+          imagePullPolicy: {{ $lk.image.pullPolicy }}
+          args: ["--config", "/etc/livekit/livekit.yaml"]
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          env:
+            - name: LIVEKIT_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "tuwunel.rtcSecretName" . }}
+                  key: apiKey
+            - name: LIVEKIT_API_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "tuwunel.rtcSecretName" . }}
+                  key: apiSecret
+            - name: LIVEKIT_KEYS
+              value: "$(LIVEKIT_API_KEY): $(LIVEKIT_API_SECRET)"
+            {{- if not $lk.useExternalIP }}
+            # The address clients send media to. LiveKit would otherwise offer
+            # only the pod IP, which nothing outside the cluster can reach.
+            - name: NODE_IP
+              {{- if $lk.nodeIP }}
+              value: {{ $lk.nodeIP | quote }}
+              {{- else }}
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+              {{- end }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: 7880
+              protocol: TCP
+            - name: rtc-tcp
+              containerPort: {{ $lk.tcpPort }}
+              hostPort: {{ $lk.tcpPort }}
+              protocol: TCP
+            - name: rtc-udp
+              containerPort: {{ $lk.udpPort }}
+              hostPort: {{ $lk.udpPort }}
+              protocol: UDP
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 5
+          resources:
+            {{- toYaml $lk.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/livekit
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "tuwunel.livekitName" . }}
+        - name: tmp
+          emptyDir: {}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+# Signalling only, for the Ingress. Media reaches the pod through its hostPorts.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tuwunel.livekitName" . }}
+  labels:
+    {{- include "tuwunel.labels" . | nindent 4 }}
+    app.kubernetes.io/component: livekit
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "tuwunel.livekitSelectorLabels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: 7880
+      targetPort: http
+      protocol: TCP
+{{- end }}

@@ -59,3 +59,7 @@ nextcloud:
 # @alice:example.com. Needs DNS for matrix.example.com and example.com.
 tuwunel:
   enabled: true
+  # Voice and video calls. Needs DNS for matrix-rtc.example.com, and 7881/tcp
+  # and 7882/udp open on the node. See charts/tuwunel/README.md#calls.
+  matrixRtc:
+    enabled: true

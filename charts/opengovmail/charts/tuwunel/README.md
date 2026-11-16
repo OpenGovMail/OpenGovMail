@@ -57,6 +57,40 @@ https://<domain>/.well-known/matrix/server  {"m.server":"matrix.<domain>:443"}
 
 Federation goes over 443 through that delegation, so port 8448 is not opened.
 
+## Calls
+
+Voice and video calls use Element Call (MatrixRTC). Element X places every call this way, including one-to-one calls. Tuwunel doesn't carry media itself, so without a call backend every call fails with `MISSING_MATRIX_RTC_TRANSPORT`. Turn the backend on with:
+
+```bash
+--set tuwunel.matrixRtc.enabled=true
+```
+
+This deploys two services next to the homeserver:
+
+| Service | Role |
+|---|---|
+| LiveKit (`<release>-tuwunel-livekit`) | SFU that relays each participant's audio and video to the others |
+| lk-jwt-service (`<release>-tuwunel-rtc-jwt`) | Gives a signed-in user a LiveKit token, after checking their Matrix OpenID token with the homeserver |
+
+Tuwunel advertises them through `livekit_url`, which fills both places clients look: `/_matrix/client/unstable/org.matrix.msc4143/rtc/transports` and the `org.matrix.msc4143.rtc_foci` key in `.well-known/matrix/client`. Only users of this homeserver can start a call (`LIVEKIT_FULL_ACCESS_HOMESERVERS`), and LiveKit opens no rooms on its own (`room.auto_create: false`). The API key and secret are generated on first install and kept in `<release>-tuwunel-rtc`.
+
+It needs:
+
+- **DNS:** `matrix-rtc.<serverName>` (or `matrixRtc.host`) pointing at the cluster. Token requests and LiveKit's signalling WebSocket share this host over 443.
+- **Firewall:** media doesn't go through the Ingress. Open these ports on the node:
+
+  | Port | Use |
+  |---|---|
+  | `7882/udp` | All media, multiplexed on one port |
+  | `7881/tcp` | ICE over TCP, for networks that block UDP |
+
+  With UFW: `ufw allow 7882/udp && ufw allow 7881/tcp`. Both ports are bound with `hostPort`, so LiveKit sees the client's real address.
+- **A reachable node address:** LiveKit tells clients to send media to the node's IP (`status.hostIP`). On a VPS that is the public address. Check the `INTERNAL-IP` column of `kubectl get nodes -o wide`. If it's private, set `matrixRtc.livekit.nodeIP` to the public address that forwards to the node. On a cloud VM behind 1:1 NAT (AWS, GCP), set `matrixRtc.livekit.useExternalIP=true` instead to discover it over STUN.
+
+lk-jwt-service runs in standalone mode. The application-service mode needs MSC4502 and MSC4512 support in the homeserver, which Tuwunel doesn't have. It checks callers through `/_matrix/federation/v1/openid/userinfo`, which works with federation off.
+
+There's no TURN server. Clients whose network blocks both UDP and port 7881, such as a proxy that allows only 443, can't connect media.
+
 ## Configuration
 
 | Key | Default | Description |
@@ -79,6 +113,15 @@ Federation goes over 443 through that delegation, so port 8448 is not opened.
 | `ingress.enabled` | `true` | Ingress for `host` |
 | `ingress.className` | `""` | IngressClass; empty uses the cluster default |
 | `wellKnown.enabled` | `true` | Ingress for `<serverName>/.well-known/matrix` |
+| `matrixRtc.enabled` | `false` | Deploy LiveKit and lk-jwt-service for calls (see [Calls](#calls)) |
+| `matrixRtc.host` | `matrix-rtc.<serverName>` | Hostname for token requests and LiveKit signalling |
+| `matrixRtc.existingSecret` | `""` | Secret with `apiKey` and `apiSecret`; empty generates `<release>-tuwunel-rtc` |
+| `matrixRtc.livekit.tcpPort` | `7881` | ICE over TCP, bound on the node |
+| `matrixRtc.livekit.udpPort` | `7882` | UDP media, bound on the node |
+| `matrixRtc.livekit.nodeIP` | node IP | Address advertised to clients for media |
+| `matrixRtc.livekit.useExternalIP` | `false` | Discover the public address over STUN instead |
+| `matrixRtc.livekit.image.tag` | `v1.13.11` | LiveKit image tag |
+| `matrixRtc.jwt.image.tag` | `0.10.0` | lk-jwt-service image tag |
 | `extraEnv` | `[]` | Extra `TUWUNEL_*` variables, which override the config file |
 
 Ingress TLS certificates come from cert-manager through `global.tls.issuer`. Traefik passes the `X-Matrix` federation header unchanged and has no request body limit by default. Behind nginx, set `proxy-body-size` to at least `maxRequestSize`.
@@ -89,7 +132,9 @@ Ingress TLS certificates come from cert-manager through `global.tls.issuer`. Tra
 helm test opengovmail -n mail
 ```
 
-The test checks the client API, the `.well-known` answer and, with OIDC on, that SSO is the offered login.
+The test checks the client API, the `.well-known` answer and, with OIDC on, that SSO is the offered login. With `matrixRtc` on, it also checks that the call transport is advertised and that lk-jwt-service and LiveKit answer.
+
+To test calls end to end, start a call in Element X between two accounts on different networks, for example one on mobile data. If the call opens but no audio or video arrives, the media ports are closed or the node address is wrong; see [Calls](#calls).
 
 To sign in, open [app.element.io](https://app.element.io), choose to sign in, and change the homeserver to `matrix.<domain>`. Then click the ThunderID button.
 
