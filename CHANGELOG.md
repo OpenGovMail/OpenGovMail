@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1]
+
+Raven v0.9.1, whose mail domains come from a per-OU mapping in raven.yaml (`raven.organizationUnitDomains`), and the groundwork for Nextcloud's collaboration apps.
+
+## What's Changed
+* feat(charts): add Nextcloud groundwork for the collaboration apps by @maneesha-xyz in https://github.com/OpenGovMail/OpenGovMail/pull/400
+* fix(charts): configure raven v0.9.1's organization_unit_domains by @Aravinda-HWK in https://github.com/OpenGovMail/OpenGovMail/pull/401
+
+### Upgrading
+
+* With an external ThunderID, set `raven.organizationUnitDomains` to every organization unit that receives mail, keyed by OU ID, main domain first. The chart won't render without it. With the bundled ThunderID, the default maps its default OU to `global.domain`.
+* Raven is pinned to `v0.9.1` instead of the floating `dev` tag.
+
+
+**Full Changelog**: https://github.com/OpenGovMail/OpenGovMail/compare/v0.5.0...v0.5.1
+
 ## [0.5.0]
 
 Tuwunel Matrix homeserver with ThunderID sign-in, ThunderID 1.0.2, fixes to the rspamd, unbound and postfix charts, and HTTP server timeouts and request body limits for the metadata service.
