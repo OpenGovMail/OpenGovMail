@@ -64,8 +64,8 @@ The service sends this JSON every 60 seconds:
 |----------|----------|---------|-------------|
 | `EXTERNAL_API_URL` | Yes | - | Super Platform endpoint URL |
 | `API_KEY` | Yes* | - | API key for authentication |
-| `PUSH_INTERVAL_SECONDS` | No | 60 | Heartbeat frequency |
-| `ENABLE_PUSH_SERVICE` | No | true | Enable/disable heartbeat |
+| `PUSH_INTERVAL_SECONDS` | No | 60 | Heartbeat frequency in seconds. Must be a positive integer when `ENABLE_PUSH_SERVICE` is enabled; `0` or negative values make the service exit at startup with an error. |
+| `ENABLE_PUSH_SERVICE` | No | true | Enable/disable heartbeat. Accepts `1`, `t`, `T`, `TRUE`, `true`, `True` to enable and `0`, `f`, `F`, `FALSE`, `false`, `False` to disable. Invalid values log a warning and use the default (`true`). |
 | `PORT` | No | 8888 | Service port |
 | `CLAMAV_DB_PATH` | No | /var/lib/clamav | ClamAV database location |
 

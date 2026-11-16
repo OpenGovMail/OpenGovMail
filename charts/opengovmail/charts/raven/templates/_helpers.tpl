@@ -30,6 +30,14 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- required "global.domain is required (e.g. --set global.domain=example.com)" ((.Values.global).domain) }}
 {{- end }}
 
+{{/*
+raven.yaml's organization_unit_domains. Empty falls back to the bundled ThunderID's
+default OU, whose ID its shipped defaults fix, owning global.domain.
+*/}}
+{{- define "raven.organizationUnitDomains" -}}
+{{- .Values.organizationUnitDomains | default (dict "01900000-0000-7000-8000-000000000001" (list (include "raven.domain" .))) | toYaml }}
+{{- end }}
+
 {{- define "raven.mailHostname" -}}
 {{- (.Values.global).mailHostname | default (printf "mail.%s" (include "raven.domain" .)) }}
 {{- end }}
@@ -67,13 +75,36 @@ Both are the public name rather than the in-cluster Service name because raven
 speaks HTTPS with no skip-verify or custom-CA option, and opengovmail-thunder-service
 is not on the cert either. In-cluster calls therefore hairpin via the node's
 external IP (see finding #7).
+
+global.thunder.url (an external ThunderID) supplies host and port when the
+matching thunder.host / thunder.publicHost is empty.
 */}}
+{{- define "raven.externalThunder" -}}
+{{- with ((.Values.global).thunder).url -}}
+{{- $u := urlParse . -}}
+{{- $port := trimPrefix (printf "%s:" $u.hostname) $u.host -}}
+{{- dict "host" $u.hostname "port" (ternary "443" $port (eq $port $u.host)) | toJson -}}
+{{- end -}}
+{{- end }}
+
 {{- define "raven.thunderHost" -}}
-{{- .Values.thunder.host | default (include "raven.domain" .) }}
+{{- $ext := include "raven.externalThunder" . | default "{}" | fromJson -}}
+{{- .Values.thunder.host | default $ext.host | default (include "raven.domain" .) }}
+{{- end }}
+
+{{- define "raven.thunderPort" -}}
+{{- $ext := include "raven.externalThunder" . | default "{}" | fromJson -}}
+{{- if and $ext.port (not .Values.thunder.host) }}{{ $ext.port }}{{ else }}{{ .Values.thunder.port }}{{ end }}
 {{- end }}
 
 {{- define "raven.thunderPublicHost" -}}
-{{- .Values.thunder.publicHost | default (include "raven.domain" .) }}
+{{- $ext := include "raven.externalThunder" . | default "{}" | fromJson -}}
+{{- .Values.thunder.publicHost | default $ext.host | default (include "raven.domain" .) }}
+{{- end }}
+
+{{- define "raven.thunderPublicPort" -}}
+{{- $ext := include "raven.externalThunder" . | default "{}" | fromJson -}}
+{{- if and $ext.port (not .Values.thunder.publicHost) }}{{ $ext.port }}{{ else }}{{ .Values.thunder.publicPort }}{{ end }}
 {{- end }}
 
 {{/*

@@ -1,0 +1,13 @@
+apiVersion: v2
+name: tuwunel
+description: Tuwunel Matrix homeserver, signing users in through ThunderID
+type: application
+version: 0.1.0
+appVersion: "v2.0.0"
+keywords:
+  - matrix
+  - tuwunel
+  - chat
+  - homeserver
+maintainers:
+  - name: OpenGovMail Team

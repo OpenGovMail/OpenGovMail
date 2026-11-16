@@ -1,0 +1,63 @@
+{{- if .Values.nextcloud.enabled }}
+{{- /*
+Registers Nextcloud as an OAuth client in ThunderID (opengovmail.oidcRegisterJob),
+then leaves the credentials in a Secret for Nextcloud's post-installation hook to
+configure user_oidc with.
+
+Idempotent: it creates the client once, and on later runs updates it in place, so a
+new host or secret reaches ThunderID on upgrade.
+*/}}
+{{- $clientSecret := include "opengovmail.nextcloudClientSecret" . }}
+{{- $clientId := (((.Values.global).nextcloudIdp).clientId) | default "NEXTCLOUD" }}
+{{- $host := include "opengovmail.nextcloudHost" . }}
+{{- $thunderUrl := include "opengovmail.thunderUrl" . }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Values.nextcloudDeps.idpSecretName }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "opengovmail.labels" . | nindent 4 }}
+    app.kubernetes.io/component: nextcloud-idp
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-6"
+    "helm.sh/hook-delete-policy": before-hook-creation
+type: Opaque
+data:
+  clientId: {{ $clientId | b64enc | quote }}
+  clientSecret: {{ $clientSecret | b64enc | quote }}
+  # Here because values files cannot be templated, and the hook needs the domain.
+  discoveryUri: {{ printf "%s/.well-known/openid-configuration" $thunderUrl | b64enc | quote }}
+---
+{{- $job := .Values.nextcloudDeps.registerJob }}
+{{- $app := dict
+  "name" "Nextcloud"
+  "description" "OpenGovMail collaboration suite"
+  "type" "browser"
+  "isRegistrationFlowEnabled" false
+  "allowedUserTypes" $job.allowedUserTypes
+  "userAttributes" (list "given_name" "family_name" "email" "groups" "name" "ouId")
+  "inboundAuthConfig" (list (dict
+    "type" "oauth2"
+    "config" (dict
+      "redirectUris" (list (printf "https://%s/apps/user_oidc/code" $host))
+      "grantTypes" (list "authorization_code" "refresh_token")
+      "responseTypes" (list "code")
+      "pkceRequired" false
+      "publicClient" false
+      "tokenEndpointAuthMethod" "client_secret_post"
+      "scopes" (list "openid" "profile" "email" "group")
+      "scopeClaims" (dict
+        "profile" (list "name" "given_name" "family_name")
+        "email" (list "email" "email_verified")
+        "group" (list "groups"))
+      "token" (dict
+        "idToken" (dict "userAttributes" (list "name" "given_name" "family_name" "email" "groups") "validityPeriod" 3600)
+        "accessToken" (dict "userAttributes" (list "name" "email" "groups") "validityPeriod" 3600)))))
+}}
+{{- /* user_oidc sends credentials in the body; basic fails only at the token
+     exchange, after the user has already signed in. Without scopeClaims ThunderID
+     releases no name claim and every account arrives with a blank display name. */}}
+{{ include "opengovmail.oidcRegisterJob" (dict "ctx" . "name" "nextcloud" "clientId" $clientId "secretName" .Values.nextcloudDeps.idpSecretName "job" $job "app" $app) }}
+{{- end }}

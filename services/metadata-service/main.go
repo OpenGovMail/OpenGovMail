@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -22,6 +23,17 @@ import (
 var httpClient = &http.Client{
 	Timeout: 15 * time.Second,
 }
+
+// HTTP server and request size limits.
+const (
+	serverReadHeaderTimeout = 5 * time.Second
+	serverReadTimeout       = 10 * time.Second
+	serverWriteTimeout      = 15 * time.Second
+	serverIdleTimeout       = 60 * time.Second
+	serverMaxHeaderBytes    = 1 << 14 // 16 KB
+	maxRequestBodyBytes     = 1 << 20 // 1 MiB
+	maxErrorBodyBytes       = 4 << 10 // 4 KB
+)
 
 // Compiled regex for ClamAV CVD header parsing
 var clamAVVDBRegex = regexp.MustCompile(`ClamAV-VDB:(\d+):(\d+):`)
@@ -46,10 +58,10 @@ type Config struct {
 
 // SuperPlatformHeartbeat represents the heartbeat payload for Super Platform
 type SuperPlatformHeartbeat struct {
-	Timestamp           string `json:"timestamp"`
-	InstanceID          string `json:"instance_id"`
-	SignatureVersion    string `json:"signature_version"`
-	SignatureUpdatedAt  string `json:"signature_updated_at"`
+	Timestamp          string `json:"timestamp"`
+	InstanceID         string `json:"instance_id"`
+	SignatureVersion   string `json:"signature_version"`
+	SignatureUpdatedAt string `json:"signature_updated_at"`
 }
 
 // SuperPlatformResult represents data received from Super Platform
@@ -67,9 +79,13 @@ func init() {
 		ClamAVDBPath:      getEnv("CLAMAV_DB_PATH", "/var/lib/clamav"),
 		ExternalAPIURL:    getEnv("EXTERNAL_API_URL", ""),
 		PushInterval:      time.Duration(getEnvAsInt("PUSH_INTERVAL_SECONDS", 60)) * time.Second,
-		EnablePushService: getEnv("ENABLE_PUSH_SERVICE", "true") == "true",
+		EnablePushService: getEnvAsBool("ENABLE_PUSH_SERVICE", true),
 		APIKey:            getEnv("API_KEY", ""),
 		InstanceID:        getServerIP(), // Use server IP as instance ID
+	}
+
+	if config.EnablePushService && config.PushInterval <= 0 {
+		log.Fatalf("invalid PUSH_INTERVAL_SECONDS: must be a positive integer, got %v", config.PushInterval)
 	}
 }
 
@@ -90,6 +106,21 @@ func getEnvAsInt(key string, defaultValue int) int {
 	return defaultValue
 }
 
+// getEnvAsBool parses key with strconv.ParseBool. Unset or empty values use
+// defaultVal silently; invalid values log a warning and use defaultVal.
+func getEnvAsBool(key string, defaultVal bool) bool {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return defaultVal
+	}
+	b, err := strconv.ParseBool(raw)
+	if err != nil {
+		log.Printf("WARN: invalid %s=%q (expected true/false/1/0), using default %t", key, sanitizeForLog(raw), defaultVal)
+		return defaultVal
+	}
+	return b
+}
+
 // getServerIP attempts to get the server's outbound IP address
 func getServerIP() string {
 	// Try to get the outbound IP by connecting to a public DNS server
@@ -108,7 +139,7 @@ func getServerIP() string {
 func getClamAVSignatureInfo() (version int, updatedAt time.Time, err error) {
 	// Look for daily.cvd or daily.cld
 	dailyPath := filepath.Join(config.ClamAVDBPath, "daily.cvd")
-	
+
 	// Check if daily.cvd exists, otherwise try daily.cld
 	info, err := os.Stat(dailyPath)
 	if os.IsNotExist(err) {
@@ -118,17 +149,17 @@ func getClamAVSignatureInfo() (version int, updatedAt time.Time, err error) {
 			return 0, time.Time{}, fmt.Errorf("daily.cvd/cld not found: %w", err)
 		}
 	}
-	
+
 	// Get modification time
 	updatedAt = info.ModTime()
-	
+
 	// Try to read CVD header to get version
 	file, err := os.Open(dailyPath)
 	if err != nil {
 		return 0, updatedAt, fmt.Errorf("failed to open %s: %w", dailyPath, err)
 	}
 	defer file.Close()
-	
+
 	header := make([]byte, 512)
 	if n, err := file.Read(header); err == nil && n > 0 {
 		// CVD header format: ClamAV-VDB:build_time:version:...
@@ -140,7 +171,7 @@ func getClamAVSignatureInfo() (version int, updatedAt time.Time, err error) {
 			}
 		}
 	}
-	
+
 	return version, updatedAt, nil
 }
 
@@ -150,13 +181,13 @@ func createHeartbeatPayload() (*SuperPlatformHeartbeat, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get ClamAV signature info: %w", err)
 	}
-	
+
 	// Determine file name (daily.cvd or daily.cld)
 	fileName := "daily.cvd"
 	if _, err := os.Stat(filepath.Join(config.ClamAVDBPath, "daily.cvd")); os.IsNotExist(err) {
 		fileName = "daily.cld"
 	}
-	
+
 	return &SuperPlatformHeartbeat{
 		Timestamp:          time.Now().UTC().Format(time.RFC3339),
 		InstanceID:         config.InstanceID,
@@ -190,7 +221,7 @@ func pushMetadataToExternalAPI() error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, maxErrorBodyBytes))
 		return fmt.Errorf("external API returned status %d: %s", resp.StatusCode, string(body))
 	}
 
@@ -213,7 +244,7 @@ func startPeriodicPush() {
 	ticker := time.NewTicker(config.PushInterval)
 	go func() {
 		log.Printf("Starting periodic metadata push service (interval: %v)", config.PushInterval)
-		
+
 		// Push immediately on startup
 		if err := pushMetadataToExternalAPI(); err != nil {
 			log.Printf("Error pushing metadata on startup: %v", err)
@@ -273,26 +304,47 @@ func apiKeyAuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+// writeJSONError sends a JSON error response with the given status code.
+func writeJSONError(w http.ResponseWriter, status int, message string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(map[string]string{
+		"error": message,
+	})
+}
+
 // receiveSuperPlatformResultHandler handles incoming results from Super Platform
 func receiveSuperPlatformResultHandler(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodyBytes)
+
+	// Read the whole bounded body before decoding. json.Decoder stops after the
+	// first JSON value, so trailing bytes would never trip MaxBytesReader.
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			writeJSONError(w, http.StatusRequestEntityTooLarge, "Request payload too large")
+			return
+		}
+
+		writeJSONError(w, http.StatusBadRequest, "Invalid JSON payload")
+		return
+	}
+
 	var result SuperPlatformResult
-	if err := json.NewDecoder(r.Body).Decode(&result); err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "Invalid JSON payload",
-		})
+	if err := json.Unmarshal(body, &result); err != nil {
+		writeJSONError(w, http.StatusBadRequest, "Invalid JSON payload")
 		return
 	}
 
 	// TODO: Process the result from Super Platform
 	// For now, just log and acknowledge
 	log.Printf("Received result from Super Platform: status=%s, timestamp=%s", sanitizeForLog(result.Status), sanitizeForLog(result.Timestamp))
-	
-	// Sanitize data for logging by converting to JSON string
+
+	// Log only the payload size, never the payload content
 	dataJSON, err := json.Marshal(result.Data)
 	if err == nil {
-		log.Printf("Data received: %s", sanitizeForLog(string(dataJSON)))
+		log.Printf("Data received: %d bytes", len(dataJSON))
 	} else {
 		log.Printf("Data received: (unable to marshal)")
 	}
@@ -332,6 +384,20 @@ func loggingMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+// newServer builds the HTTP server for the metadata service with hardened
+// timeouts and header size limits.
+func newServer(addr string, handler http.Handler) *http.Server {
+	return &http.Server{
+		Addr:              addr,
+		Handler:           handler,
+		ReadHeaderTimeout: serverReadHeaderTimeout,
+		ReadTimeout:       serverReadTimeout,
+		WriteTimeout:      serverWriteTimeout,
+		IdleTimeout:       serverIdleTimeout,
+		MaxHeaderBytes:    serverMaxHeaderBytes,
+	}
+}
+
 func main() {
 	log.Println("OpenGovMail Metadata Service (Go)")
 	log.Printf("Port: %s", config.Port)
@@ -340,7 +406,7 @@ func main() {
 	log.Printf("Instance ID: %s", config.InstanceID)
 	log.Printf("Push Interval: %v", config.PushInterval)
 	log.Printf("Push Service Enabled: %v", config.EnablePushService)
-	
+
 	if config.APIKey != "" {
 		log.Println("API Key authentication enabled")
 	} else {
@@ -363,7 +429,7 @@ func main() {
 	// Start server
 	addr := "0.0.0.0:" + config.Port
 	log.Printf("Server listening on %s", addr)
-	if err := http.ListenAndServe(addr, handler); err != nil {
+	if err := newServer(addr, handler).ListenAndServe(); err != nil {
 		log.Fatalf("Server failed to start: %v", err)
 	}
 }

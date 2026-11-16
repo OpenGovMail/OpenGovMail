@@ -1,4 +1,4 @@
-{{- if .Values.thunder.enabled }}
+{{- if .Values.thunderid.enabled }}
 {{- /*
 LoadBalancer Service exposing Thunder on the node's :8090.
 
@@ -21,7 +21,7 @@ metadata:
 spec:
   type: LoadBalancer
   selector:
-    app.kubernetes.io/name: thunder
+    app.kubernetes.io/name: thunderid
     app.kubernetes.io/instance: {{ .Release.Name }}
   ports:
     - name: https

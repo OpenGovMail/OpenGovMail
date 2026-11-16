@@ -1,0 +1,128 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "tuwunel.fullname" . }}
+  labels:
+    {{- include "tuwunel.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "tuwunel.fullname" . }}
+  # RocksDB allows one process per database; Tuwunel cannot scale out.
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "tuwunel.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+      {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "tuwunel.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with (.Values.imagePullSecrets | default ((.Values.global).imagePullSecrets)) }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: tuwunel
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          env:
+            - name: TUWUNEL_CONFIG
+              value: /etc/tuwunel/tuwunel.toml
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          startupProbe:
+            {{- toYaml .Values.startupProbe | nindent 12 }}
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/tuwunel/tuwunel.toml
+              subPath: tuwunel.toml
+              readOnly: true
+            {{- if .Values.oidc.enabled }}
+            # A directory mount, not subPath, so a rotated secret reaches the pod:
+            # Tuwunel rereads the file on every sign-in.
+            - name: oidc
+              mountPath: /etc/tuwunel/oidc
+              readOnly: true
+            {{- end }}
+            - name: data
+              mountPath: /var/lib/tuwunel
+            {{- if .Values.backup.enabled }}
+            - name: backups
+              mountPath: /var/lib/tuwunel-backups
+            {{- end }}
+            # The root filesystem is read-only; RocksDB and the runtime need a scratch dir.
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "tuwunel.fullname" . }}
+        {{- if .Values.oidc.enabled }}
+        - name: oidc
+          secret:
+            secretName: {{ .Values.oidc.existingSecret }}
+            items:
+              - key: clientSecret
+                path: clientSecret
+        {{- end }}
+        - name: tmp
+          emptyDir: {}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        {{- with .Values.persistence.storageClass }}
+        storageClassName: {{ . }}
+        {{- end }}
+        accessModes:
+          - {{ .Values.persistence.accessMode }}
+        resources:
+          requests:
+            storage: {{ .Values.persistence.size }}
+    {{- if .Values.backup.enabled }}
+    - metadata:
+        name: backups
+      spec:
+        {{- with .Values.backup.persistence.storageClass }}
+        storageClassName: {{ . }}
+        {{- end }}
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: {{ .Values.backup.persistence.size }}
+    {{- end }}

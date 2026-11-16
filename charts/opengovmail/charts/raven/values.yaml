@@ -6,9 +6,12 @@
 replicaCount: 1
 
 image:
-  repository: ghcr.io/lsflk/raven
-  tag: ""            # defaults to appVersion (":latest")
-  pullPolicy: Always # floating tag; pin + IfNotPresent in prod
+  # Published under OpenGovMail, where the repository now lives. The other silver
+  # images are still under lsflk.
+  repository: ghcr.io/opengovmail/raven
+  # v0.9.1 and later need organizationUnitDomains (below).
+  tag: "v0.9.1"
+  pullPolicy: IfNotPresent
 
 imagePullSecrets: []
 nameOverride: ""
@@ -73,17 +76,29 @@ thunder:
   publicHost: ""     # default <domain>
   publicPort: 8090
   audience: EMAIL_APP
-  # Raven otherwise tries to read the app ID from `docker logs thunder-setup`
-  # (a compose-only hack needing the docker socket). Set this to skip that path.
-  # Empty is fine without Thunder — the group resolver just fails gracefully.
-  applicationId: ""
-  # System identity raven uses to obtain a system-scoped assertion for OU->domain
-  # resolution during login (IDP_SYSTEM_USERNAME / IDP_SYSTEM_PASSWORD; raven defaults
-  # admin/admin). Needs a user with system:ou:view (the bootstrap admin). Password is
-  # read from a Secret so it isn't committed.
-  systemUsername: ""           # e.g. admin
-  systemPasswordSecret: ""     # Secret name holding the admin password
-  systemPasswordSecretKey: password
+  # Credentials raven uses for its administrative reads: organization units, users
+  # and groups. The Secret carries two keys, clientSecret and directAuthSecret, and
+  # is created by the umbrella (templates/raven-idp-secret.yaml).
+  #
+  # This replaces the old admin username and password. ThunderID no longer permits a
+  # background service to log in as a person, and a password-check token carries no
+  # permissions, so raven authenticates as its own machine-to-machine application.
+  idpSecretName: ""            # e.g. opengovmail-raven-idp
+  idpClientId: RAVEN_SYSTEM
+  # Resource server identifier to request the token for. Empty lets raven derive it
+  # from its own base URL plus /mcp, which matches while raven reaches ThunderID on
+  # the public name.
+  resourceIdentifier: ""
+
+# Mail domains each ThunderID organization unit owns, keyed by OU ID, main domain
+# first. Rendered as raven.yaml's organization_unit_domains, which every raven
+# service reads at startup:
+#   organizationUnitDomains:
+#     "<ou-id>": ["example.com", "example.org"]
+# An OU that isn't listed owns no domain: its mail is rejected and its users can't
+# log in. A domain may belong to only one OU. Empty maps the bundled ThunderID's
+# default OU, whose ID is fixed, to global.domain; an external ThunderID must set it.
+organizationUnitDomains: {}
 
 # S3-compatible blob storage for attachments. Defaults wire to the in-cluster
 # seaweedfs subchart. Credentials come from global.s3.* (shared with seaweedfs);

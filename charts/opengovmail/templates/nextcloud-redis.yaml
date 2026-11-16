@@ -1,0 +1,58 @@
+{{- if .Values.nextcloud.enabled }}
+{{- /*
+Redis for Nextcloud file locking and caching. Replaces the community chart's bundled
+redis subchart, which pulls from bitnamilegacy. No auth: it is ClusterIP only and
+holds no durable data, so a password would be one more derived secret for nothing.
+*/}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.nextcloudDeps.redis.serviceName }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "opengovmail.labels" . | nindent 4 }}
+    app.kubernetes.io/component: nextcloud-redis
+spec:
+  ports:
+    - port: 6379
+      targetPort: redis
+      name: redis
+  selector:
+    {{- include "opengovmail.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: nextcloud-redis
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-nextcloud-redis
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "opengovmail.labels" . | nindent 4 }}
+    app.kubernetes.io/component: nextcloud-redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "opengovmail.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: nextcloud-redis
+  template:
+    metadata:
+      labels:
+        {{- include "opengovmail.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: nextcloud-redis
+    spec:
+      containers:
+        - name: redis
+          image: "{{ .Values.nextcloudDeps.redis.image.repository }}:{{ .Values.nextcloudDeps.redis.image.tag }}"
+          imagePullPolicy: {{ .Values.nextcloudDeps.redis.image.pullPolicy }}
+          ports:
+            - name: redis
+              containerPort: 6379
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.nextcloudDeps.redis.resources | nindent 12 }}
+{{- end }}

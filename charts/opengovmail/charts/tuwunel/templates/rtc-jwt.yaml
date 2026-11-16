@@ -1,0 +1,112 @@
+{{- if .Values.matrixRtc.enabled }}
+{{- $jwt := .Values.matrixRtc.jwt }}
+{{- /*
+lk-jwt-service, in standalone mode: the application-service mode needs
+MSC4502/MSC4512 support in the homeserver, which Tuwunel lacks. It checks each
+caller's Matrix OpenID token against the homeserver's federation userinfo
+endpoint, which answers even with federation off.
+*/}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tuwunel.jwtName" . }}
+  labels:
+    {{- include "tuwunel.labels" . | nindent 4 }}
+    app.kubernetes.io/component: rtc-jwt
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "tuwunel.jwtSelectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "tuwunel.jwtSelectorLabels" . | nindent 8 }}
+    spec:
+      {{- with (.Values.imagePullSecrets | default ((.Values.global).imagePullSecrets)) }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      # A scratch image: no user of its own, no shell.
+      securityContext:
+        runAsUser: 65534
+        runAsGroup: 65534
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: lk-jwt-service
+          image: "{{ $jwt.image.repository }}:{{ $jwt.image.tag }}"
+          imagePullPolicy: {{ $jwt.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          env:
+            - name: LIVEKIT_JWT_BIND
+              value: ":8080"
+            # Handed to clients with their token, so it is the public address.
+            - name: LIVEKIT_URL
+              value: {{ printf "wss://%s" (include "tuwunel.rtcHost" .) | quote }}
+            - name: LIVEKIT_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "tuwunel.rtcSecretName" . }}
+                  key: apiKey
+            - name: LIVEKIT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "tuwunel.rtcSecretName" . }}
+                  key: apiSecret
+            # Only this homeserver's users may open rooms on the SFU.
+            - name: LIVEKIT_FULL_ACCESS_HOMESERVERS
+              value: {{ include "tuwunel.serverName" . | quote }}
+            - name: LIVEKIT_LOG_LEVEL
+              value: {{ $jwt.logLevel | quote }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 5
+          resources:
+            {{- toYaml $jwt.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tuwunel.jwtName" . }}
+  labels:
+    {{- include "tuwunel.labels" . | nindent 4 }}
+    app.kubernetes.io/component: rtc-jwt
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "tuwunel.jwtSelectorLabels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP
+{{- end }}

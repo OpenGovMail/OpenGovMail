@@ -6,9 +6,10 @@ metadata:
     helm.sh/chart: {{ include "rspamd.chart" . }}
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/managed-by: {{ .Release.Service }}
-    # matches the NetworkPolicy's milter ingress selector so this test can
-    # actually reach port 11332, same as a real SMTP client would.
-    app.kubernetes.io/name: smtp
+    # Admitted to the milter port by the NetworkPolicy's dedicated test rule.
+    # Deliberately not the MTA's label: that would add this pod to the postfix
+    # Service's endpoints.
+    app.kubernetes.io/name: rspamd-test
   annotations:
     "helm.sh/hook": test
 spec:
@@ -20,7 +21,7 @@ spec:
         - -c
         - |
           echo "Testing Rspamd milter connectivity on port 11332..."
-          if timeout 2 bash -c "echo > /dev/tcp/{{ include "rspamd.fullname" . }}/11332" >/dev/null 2>&1; then
+          if timeout 2 bash -c "echo > /dev/tcp/{{ include "rspamd.serviceName" . }}/{{ .Values.service.milter.port }}" >/dev/null 2>&1; then
             echo "✓ Milter port 11332 is reachable"
           else
             echo "✗ Milter port 11332 is NOT reachable"
@@ -29,7 +30,7 @@ spec:
 
           {{- if .Values.service.webui.enabled }}
           echo "Testing Rspamd Web UI connectivity on port 11334..."
-          if timeout 2 bash -c "echo > /dev/tcp/{{ include "rspamd.fullname" . }}/11334" >/dev/null 2>&1; then
+          if timeout 2 bash -c "echo > /dev/tcp/{{ include "rspamd.serviceName" . }}/{{ .Values.service.webui.port }}" >/dev/null 2>&1; then
             echo "✓ Web UI port 11334 is reachable"
           else
             echo "✗ Web UI port 11334 is NOT reachable"

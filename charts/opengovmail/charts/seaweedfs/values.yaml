@@ -5,11 +5,9 @@ replicaCount: 1
 
 image:
   repository: chrislusf/seaweedfs
-  # Overrides the image tag; defaults to the chart appVersion (":latest").
+  # Overrides the image tag; defaults to the chart appVersion (a pinned release).
   tag: ""
-  # appVersion is the floating ":latest" tag, so Always avoids nodes pinning a
-  # stale cached image. Pin a version/digest in prod and switch to IfNotPresent.
-  pullPolicy: Always
+  pullPolicy: IfNotPresent
 
 imagePullSecrets: []
 

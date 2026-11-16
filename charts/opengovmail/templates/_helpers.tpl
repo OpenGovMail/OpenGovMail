@@ -71,3 +71,167 @@ Issuer reference helper
 name: {{ .Values.global.tls.issuer }}
 kind: ClusterIssuer
 {{- end }}
+{{/*
+Raven's ThunderID credentials, resolved identically wherever they are needed.
+
+Both are needed in two templates at once — the Secret raven reads, and either the
+bootstrap data that defines raven's application or the subchart's own config — and
+separate templates cannot share a generated value. So each resolves the same way:
+an explicit value wins, otherwise whatever is already in the cluster is reused,
+otherwise the render fails with instructions rather than inventing a value that
+only one of the two consumers would see.
+*/}}
+{{- define "opengovmail.ravenClientSecret" -}}
+{{- $idp := .Values.global.ravenIdp | default dict -}}
+{{- $existing := lookup "v1" "Secret" .Release.Namespace ($idp.secretName | default "") -}}
+{{- $data := dict -}}
+{{- if $existing }}{{- $data = $existing.data | default dict -}}{{- end -}}
+{{- $current := "" -}}
+{{- if index $data "clientSecret" }}{{- $current = index $data "clientSecret" | b64dec -}}{{- end -}}
+{{- if $idp.clientSecret -}}
+{{- /* ThunderID's setup job only runs on install, so a changed value would reach
+     raven's Secret but never the registered application, and raven's token
+     requests would start failing. Refuse it instead. */ -}}
+{{- if and $current (ne $current $idp.clientSecret) -}}
+{{- fail (printf "global.ravenIdp.clientSecret differs from the value already in Secret %s. ThunderID's setup job only runs on install, so the new value would never reach raven's registered application and raven could no longer authenticate. Leave global.ravenIdp.clientSecret empty to keep the current value. To rotate it, change the secret on the Raven System application in ThunderID first, then delete Secret %s and upgrade with the new value." $idp.secretName $idp.secretName) -}}
+{{- end -}}
+{{- $idp.clientSecret -}}
+{{- else if $current -}}
+{{- $current -}}
+{{- else -}}
+{{- fail "global.ravenIdp.clientSecret is required on a first install: it authenticates raven to ThunderID, and it has to be written into both raven's Secret and the bootstrap data that defines its application, which cannot share a generated value. Later installs reuse the value already in the cluster. Generate one and pass it:\n  --set global.ravenIdp.clientSecret=$(openssl rand -hex 32)" -}}
+{{- end -}}
+{{- end }}
+
+{{- define "opengovmail.ravenDirectAuthSecret" -}}
+{{- $idp := .Values.global.ravenIdp | default dict -}}
+{{- if $idp.directAuthSecret -}}
+{{- $idp.directAuthSecret -}}
+{{- else -}}
+{{- $existing := lookup "v1" "Secret" .Release.Namespace ($idp.secretName | default "") -}}
+{{- $data := dict -}}
+{{- if $existing }}{{- $data = $existing.data | default dict -}}{{- end -}}
+{{- if index $data "directAuthSecret" -}}
+{{- index $data "directAuthSecret" | b64dec -}}
+{{- else -}}
+{{- fail "global.ravenIdp.directAuthSecret is required on a first install: it gates ThunderID's password-check endpoint, and without it every mail login fails with 401. It must be passed twice, because Helm cannot template the vendored subchart's values:\n  --set global.ravenIdp.directAuthSecret=$SECRET \\\n  --set thunderid.configuration.server.security.directAuthSecret=$SECRET" -}}
+{{- end -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+A credential generated once and kept: explicit value, else the one already in the
+Secret, else random. Every consumer reads the Secret, so one render is enough.
+A changed explicit value fails, because the consumer only took the old one on first
+start, unless rotatable says it rereads the Secret on every start.
+lookup sees nothing under helm template, so set the value explicitly there.
+Takes: ctx, secret, key, value, flag (the values path), owner (who holds the old one),
+rotatable (optional).
+*/}}
+{{- define "opengovmail.keptSecret" -}}
+{{- $existing := lookup "v1" "Secret" .ctx.Release.Namespace .secret -}}
+{{- $current := "" -}}
+{{- if and $existing (index ($existing.data | default dict) .key) }}{{- $current = index $existing.data .key | b64dec -}}{{- end -}}
+{{- if and .value $current (ne .value $current) (not .rotatable) -}}
+{{- fail (printf "%s differs from the value already in Secret %s. %s set the old value on first start and will not pick up a new one. Leave %s empty to keep the current value. To rotate it, change it in %s first, then delete Secret %s and upgrade with the new value." .flag .secret .owner .flag .owner .secret) -}}
+{{- end -}}
+{{- .value | default $current | default (randAlphaNum 40) -}}
+{{- end }}
+
+{{- define "opengovmail.nextcloudDbPassword" -}}
+{{- include "opengovmail.keptSecret" (dict "ctx" . "secret" .Values.nextcloudDeps.postgres.secretName "key" "password" "value" (.Values.nextcloudDeps.postgres.password | default "") "flag" "nextcloudDeps.postgres.password" "owner" "Postgres") -}}
+{{- end }}
+
+{{- define "opengovmail.nextcloudClientSecret" -}}
+{{- include "opengovmail.keptSecret" (dict "ctx" . "secret" .Values.nextcloudDeps.idpSecretName "key" "clientSecret" "value" ((((.Values.global).nextcloudIdp).clientSecret) | default "") "flag" "global.nextcloudIdp.clientSecret" "owner" "Nextcloud's user_oidc provider") -}}
+{{- end }}
+
+{{/*
+ThunderID's base URL: global.thunder.url, else the bundled one.
+*/}}
+{{- define "opengovmail.thunderUrl" -}}
+{{- (((.Values.global).thunder).url) | default (printf "https://%s:8090" (include "opengovmail.domain" .)) | trimSuffix "/" -}}
+{{- end }}
+
+{{/*
+Hostname Nextcloud is served on.
+*/}}
+{{- define "opengovmail.nextcloudHost" -}}
+{{- required "nextcloud.nextcloud.host is required when nextcloud.enabled" ((.Values.nextcloud).nextcloud).host -}}
+{{- end }}
+
+{{/*
+Job that registers an OAuth client in ThunderID, or updates it on upgrade, through
+files/register-oidc-client.py. A Job rather than thunderid.declarativeResources,
+because that single mount already carries ThunderID's TLS certificate, and the
+setup job is pre-install only. It authenticates as raven's m2m client, which
+already holds the system permission.
+
+Takes: ctx, name, clientId, secretName (holds clientSecret), job (the registerJob
+values: ouHandle, authFlowHandle, resourceIdentifier, image, resources), app (the
+application body without ouId, authFlowId, clientId or clientSecret), and optionally
+requiredAttributes: when set, attributes the allowed user types do not declare are
+dropped from app, and the render-time list must all be declared.
+*/}}
+{{- define "opengovmail.oidcRegisterJob" -}}
+{{- $ctx := .ctx -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $ctx.Release.Name }}-{{ .name }}-oidc-register
+  namespace: {{ $ctx.Release.Namespace }}
+  labels:
+    {{- include "opengovmail.labels" $ctx | nindent 4 }}
+    app.kubernetes.io/component: {{ .name }}-oidc-register
+  annotations:
+    # post-install so ThunderID is up and its bootstrap has run.
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "5"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: 10
+  template:
+    metadata:
+      labels:
+        {{- include "opengovmail.selectorLabels" $ctx | nindent 8 }}
+        app.kubernetes.io/component: {{ .name }}-oidc-register
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: register
+          image: {{ .job.image.repository }}:{{ .job.image.tag }}
+          env:
+            - name: THUNDER_URL
+              value: {{ include "opengovmail.thunderUrl" $ctx | quote }}
+            - name: CLIENT_ID
+              value: {{ .clientId | quote }}
+            - name: CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .secretName }}
+                  key: clientSecret
+            - name: OU_HANDLE
+              value: {{ .job.ouHandle | quote }}
+            - name: AUTH_FLOW_HANDLE
+              value: {{ .job.authFlowHandle | quote }}
+            - name: RESOURCE
+              value: {{ .job.resourceIdentifier | quote }}
+            - name: APP_JSON
+              value: {{ .app | toJson | quote }}
+            {{- with .requiredAttributes }}
+            - name: PRUNE_USER_ATTRIBUTES
+              value: {{ join "," . | quote }}
+            {{- end }}
+            - name: RAVEN_CLIENT_ID
+              value: {{ ((($ctx.Values.global).ravenIdp).clientId) | default "RAVEN_SYSTEM" | quote }}
+            - name: RAVEN_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ ((($ctx.Values.global).ravenIdp).secretName) | default "opengovmail-raven-idp" }}
+                  key: clientSecret
+          resources:
+            {{- toYaml .job.resources | nindent 12 }}
+          command: ["python3", "-c"]
+          args:
+            - {{ $ctx.Files.Get "files/register-oidc-client.py" | quote }}
+{{- end }}

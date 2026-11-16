@@ -1,6 +1,6 @@
 services:
   postfix:
-    image: ghcr.io/lsflk/silver-smtp:main
+    image: ghcr.io/opengovmail/opengovmail-smtp:main
     container_name: postfix
     ports:
       - "25:25"
@@ -58,7 +58,7 @@ services:
     user: "0:0"
 
   opendkim:
-    image: ghcr.io/lsflk/silver-dkim:main
+    image: ghcr.io/opengovmail/opengovmail-dkim:main
     container_name: opendkim
     volumes:
       - ../conf/opengovmail.yaml:/etc/opendkim/opengovmail.yaml
@@ -197,7 +197,7 @@ services:
     restart: unless-stopped
 
   certbot:
-    image: ghcr.io/lsflk/silver-certbot:main
+    image: ghcr.io/opengovmail/opengovmail-certbot:main
     container_name: certbot
     volumes:
       - ./opengovmail-config/certbot/keys/etc:/etc/letsencrypt
@@ -210,7 +210,7 @@ services:
       - mail-network
 
   opengovmail-metadata:
-    image: ghcr.io/lsflk/silver-metadata-service:main
+    image: ghcr.io/opengovmail/opengovmail-metadata-service:main
     container_name: opengovmail-metadata
     ports:
       - "8888:8888"

@@ -1,3 +1,8 @@
+{{- /* OpenDKIM signs for 10.0.0.0/8, so a Service that hides client IPs behind
+     cluster addresses would get outsiders' mail signed as ours. */}}
+{{- if and (ne .Values.service.type "ClusterIP") (ne .Values.service.externalTrafficPolicy "Local") }}
+{{- fail "postfix.service.externalTrafficPolicy must be Local when the Service is exposed, or outside mail arrives from cluster IPs that OpenDKIM signs for." }}
+{{- end }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -19,4 +24,21 @@ spec:
     - name: submission
       port: {{ .Values.service.ports.submission }}
       targetPort: submission
+      protocol: TCP
+---
+# The in-cluster relay gets its own Service so exposing the one above never exposes it.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "postfix.serviceName" . }}-relay
+  labels:
+    {{- include "postfix.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "postfix.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: relay
+      port: 10025
+      targetPort: relay
       protocol: TCP

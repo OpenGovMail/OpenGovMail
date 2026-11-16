@@ -11,9 +11,7 @@ This chart deploys OpenDKIM for OpenGovMail with configuration rendered from Hel
 
 ## Install
 
-```bash
-helm upgrade --install opengovmail charts/opengovmail -f charts/opengovmail/values-dev.yaml -n mail --create-namespace
-```
+Installed with the umbrella chart, where it is on by default. See [charts/README.md](../../../README.md) for the install command.
 
 ## Required Values
 

@@ -76,11 +76,11 @@ spec:
             failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
           volumeMounts:
             - name: opengovmail-secret
-              # NOTE: filename must stay "silver.yaml" until the opendkim image is
-              # rebuilt — the current ghcr.io/lsflk/silver-dkim image's entrypoint
+              # NOTE: filename must stay "opengovmail.yaml" until the opendkim image is
+              # rebuilt — the current ghcr.io/opengovmail/opengovmail-dkim image's entrypoint
               # script has this exact path hardcoded.
-              mountPath: /etc/opendkim/silver.yaml
-              subPath: silver.yaml
+              mountPath: /etc/opendkim/opengovmail.yaml
+              subPath: opengovmail.yaml
               readOnly: true
             - name: config
               mountPath: /etc/opendkim/opendkim.conf
