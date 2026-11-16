@@ -114,6 +114,12 @@ raven:
   enabled: true
   hostPort:
     enabled: true
+  # Mail domains each ThunderID organization unit owns, keyed by OU ID, main domain
+  # first. Empty maps the bundled ThunderID's default OU to global.domain. With an
+  # external ThunderID (global.thunder.url) it is required:
+  #   organizationUnitDomains:
+  #     "<ou-id>": ["example.com"]
+  organizationUnitDomains: {}
   tls:
     # Empty -> the raven chart derives the cert-manager Secret from global.domain
     # (mail-<domain-dashed>-tls, the name templates/certificate.yaml mints).

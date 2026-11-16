@@ -30,6 +30,14 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- required "global.domain is required (e.g. --set global.domain=example.com)" ((.Values.global).domain) }}
 {{- end }}
 
+{{/*
+raven.yaml's organization_unit_domains. Empty falls back to the bundled ThunderID's
+default OU, whose ID its shipped defaults fix, owning global.domain.
+*/}}
+{{- define "raven.organizationUnitDomains" -}}
+{{- .Values.organizationUnitDomains | default (dict "01900000-0000-7000-8000-000000000001" (list (include "raven.domain" .))) | toYaml }}
+{{- end }}
+
 {{- define "raven.mailHostname" -}}
 {{- (.Values.global).mailHostname | default (printf "mail.%s" (include "raven.domain" .)) }}
 {{- end }}
