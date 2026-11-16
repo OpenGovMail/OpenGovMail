@@ -5,6 +5,15 @@ metadata:
   labels:
     {{- include "rspamd.labels" . | nindent 4 }}
 data:
+  # Web UI / controller credentials. The rspamd image does not read
+  # RSPAMD_PASSWORD on its own; rspamd's config templating exposes RSPAMD_*
+  # variables as env.*, so this pulls the value from the Secret-backed env var
+  # without writing it into the ConfigMap. Mounted only when webui.password is set;
+  # without it the controller answers 401 to every non-local request.
+  worker-controller.inc: |
+    password = "{= env.PASSWORD =}";
+    enable_password = "{= env.PASSWORD =}";
+
   antivirus.conf: |
     clamav {
       type = "clamav";
