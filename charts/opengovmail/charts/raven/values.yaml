@@ -9,8 +9,9 @@ image:
   # Published under OpenGovMail, where the repository now lives. The other silver
   # images are still under lsflk.
   repository: ghcr.io/opengovmail/raven
-  tag: "dev"         # no :latest published; empty falls back to appVersion and fails to pull
-  pullPolicy: Always # floating tag; pin + IfNotPresent in prod
+  # v0.9.1 and later need organizationUnitDomains (below).
+  tag: "v0.9.1"
+  pullPolicy: IfNotPresent
 
 imagePullSecrets: []
 nameOverride: ""
@@ -88,6 +89,16 @@ thunder:
   # from its own base URL plus /mcp, which matches while raven reaches ThunderID on
   # the public name.
   resourceIdentifier: ""
+
+# Mail domains each ThunderID organization unit owns, keyed by OU ID, main domain
+# first. Rendered as raven.yaml's organization_unit_domains, which every raven
+# service reads at startup:
+#   organizationUnitDomains:
+#     "<ou-id>": ["example.com", "example.org"]
+# An OU that isn't listed owns no domain: its mail is rejected and its users can't
+# log in. A domain may belong to only one OU. Empty maps the bundled ThunderID's
+# default OU, whose ID is fixed, to global.domain; an external ThunderID must set it.
+organizationUnitDomains: {}
 
 # S3-compatible blob storage for attachments. Defaults wire to the in-cluster
 # seaweedfs subchart. Credentials come from global.s3.* (shared with seaweedfs);

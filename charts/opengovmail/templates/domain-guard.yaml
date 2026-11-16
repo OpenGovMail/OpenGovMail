@@ -110,6 +110,14 @@ Delete this file once the values it guards can be derived.
 {{- end }}
 {{- end }}
 
+{{- /* Raven takes each mail domain's owner from raven.organizationUnitDomains. Its
+     empty default is the bundled ThunderID's default OU, which an external
+     ThunderID doesn't share, so every domain would answer NOTFOUND and mail would
+     bounce. */}}
+{{- if and .Values.raven.enabled (not .Values.thunderid.enabled) (not .Values.raven.organizationUnitDomains) }}
+  {{- fail (printf "raven.organizationUnitDomains is required with an external ThunderID: map the ID of each organization unit that receives mail to its domains, main domain first, e.g.\n  raven:\n    organizationUnitDomains:\n      \"<ou-id>\": [\"%s\"]" (include "opengovmail.domain" .)) }}
+{{- end }}
+
 {{- /* Nextcloud and Tuwunel fetch ThunderID's OIDC discovery with certificate
      verification on. ThunderID generates a self-signed CN=localhost cert unless
      pointed elsewhere, so without this sign-in (and Nextcloud's install) fails. */}}
