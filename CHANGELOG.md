@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0]
+
+Tuwunel Matrix homeserver with ThunderID sign-in, ThunderID 1.0.2, fixes to the rspamd, unbound and postfix charts, and HTTP server timeouts and request body limits for the metadata service.
+
+## What's Changed
+* Update status of Professional Role-Based Identity to Completed by @Aravinda-HWK in https://github.com/OpenGovMail/OpenGovMail/pull/365
+* docs: link README badges and add Slack badge by @maneesha-xyz in https://github.com/OpenGovMail/OpenGovMail/pull/385
+* feat(charts): bump thunderid to 1.0.2 by @maneesha-xyz in https://github.com/OpenGovMail/OpenGovMail/pull/386
+* fix(metadata-service): add HTTP server timeouts and request body limits by @Dushmilan in https://github.com/OpenGovMail/OpenGovMail/pull/380
+* fix(charts): apply rspamd webui.password to the controller worker by @Aravinda-HWK in https://github.com/OpenGovMail/OpenGovMail/pull/394
+* fix(charts): mount unbound's configuration and default it to a recursive resolver by @Aravinda-HWK in https://github.com/OpenGovMail/OpenGovMail/pull/393
+* fix(charts): honour rspamd modules.antivirus.enabled by @Aravinda-HWK in https://github.com/OpenGovMail/OpenGovMail/pull/395
+* fix(charts): use real rspamd option names in worker-proxy.inc by @Aravinda-HWK in https://github.com/OpenGovMail/OpenGovMail/pull/396
+* fix(charts): let postfix reach the rspamd milter through its NetworkPolicy by @Aravinda-HWK in https://github.com/OpenGovMail/OpenGovMail/pull/392
+* feat(charts): add Tuwunel Matrix homeserver with ThunderID sign-in by @Aravinda-HWK in https://github.com/OpenGovMail/OpenGovMail/pull/397
+
+
+**Full Changelog**: https://github.com/OpenGovMail/OpenGovMail/compare/v0.4.0...v0.5.0
+
 ## [0.4.0]
 
 Helm charts for every service, the Silver to OpenGovMail rename, ThunderID 1.0.1 with support for an external ThunderID, Nextcloud with ThunderID single sign-on, and versioned images built on release tags. This release moves from `v.X.Y.Z` tags to `vX.Y.Z`.
