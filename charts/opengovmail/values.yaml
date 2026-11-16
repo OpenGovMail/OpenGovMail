@@ -58,6 +58,11 @@ global:
     clientId: RAVEN_SYSTEM
     clientSecret: ""
     directAuthSecret: ""
+  # Nextcloud's OAuth client in ThunderID, registered by templates/nextcloud-oidc.yaml.
+  nextcloudIdp:
+    clientId: NEXTCLOUD
+    # Empty generates one on first install and keeps it.
+    clientSecret: ""
   # Shared S3 credentials so seaweedfs (server) and raven (client) always agree.
   # secretKey "" => both charts DERIVE the same key from the release name
   # (deterministic, no cross-lookup) so a fresh one-command install matches out
@@ -343,7 +348,14 @@ nextcloud:
         name: ""
         password: ""
 
-  # Bundled databases stay off: both pull from bitnamilegacy, archived Aug 2025.
+    # Admin account, read from the Secret templates/nextcloud-admin-secret.yaml writes.
+    # The name must equal nextcloudDeps.admin.secretName; domain-guard.yaml checks.
+    existingSecret:
+      enabled: true
+      secretName: nextcloud-admin
+      usernameKey: username
+      passwordKey: password
+
     # Credentials for the ThunderID provider, written by templates/nextcloud-oidc.yaml.
     extraEnv:
       - name: OIDC_CLIENT_ID
@@ -356,17 +368,18 @@ nextcloud:
         valueFrom:
           secretKeyRef: {name: nextcloud-idp, key: discoveryUri}
 
-    # Apps install once. The provider is rewritten on every start, so a new ThunderID
-    # URL takes effect when the Nextcloud pod next restarts. To rotate the client
-    # secret, delete Secret nextcloud-idp, upgrade with global.nextcloudIdp.clientSecret,
-    # then restart the Nextcloud pod.
+    # Runs on every start, so a new app, admin password or ThunderID URL takes effect
+    # when the Nextcloud pod next restarts. To rotate the client secret, delete Secret
+    # nextcloud-idp, upgrade with global.nextcloudIdp.clientSecret, then restart the pod.
     hooks:
-      post-installation: |-
-        php occ app:install user_oidc || php occ app:enable user_oidc
-        # Not in the base image, so install them here.
-        php occ app:install calendar || php occ app:enable calendar
-        php occ app:install mail || php occ app:enable mail
       before-starting: |-
+        # Add apps to this list. None are in the base image.
+        for app in user_oidc calendar mail; do
+          php occ app:install "$app" || php occ app:enable "$app"
+        done
+        # The image reads the admin password only at first install, so set it on every
+        # start. The Secret wins over a password changed in the UI.
+        OC_PASS="$NEXTCLOUD_ADMIN_PASSWORD" php occ user:resetpassword --password-from-env "$NEXTCLOUD_ADMIN_USER"
         php occ user_oidc:provider ThunderID \
           --clientid="$OIDC_CLIENT_ID" \
           --clientsecret="$OIDC_CLIENT_SECRET" \
@@ -377,6 +390,7 @@ nextcloud:
           --mapping-email=email \
           --mapping-groups=groups
 
+  # Bundled databases stay off: both pull from bitnamilegacy, archived Aug 2025.
   internalDatabase:
     enabled: false
   postgresql:
@@ -409,6 +423,10 @@ nextcloud:
   cronjob:
     enabled: true
 
+  # A first install outlasts the default liveness probe, which kills it midway.
+  startupProbe:
+    enabled: true
+
   persistence:
     enabled: true
     size: 30Gi
@@ -417,6 +435,7 @@ nextcloud:
     enabled: true
     className: traefik
     annotations:
+      # Must equal global.tls.issuer; domain-guard.yaml fails the render otherwise.
       cert-manager.io/cluster-issuer: le-prod
       traefik.ingress.kubernetes.io/router.entrypoints: websecure
 
@@ -425,6 +444,13 @@ nextcloud:
 nextcloudDeps:
   # Release-independent so nothing assumes the release is called opengovmail.
   idpSecretName: nextcloud-idp
+
+  admin:
+    secretName: nextcloud-admin
+    username: admin
+    # Empty generates one on first install and keeps it. Set it to change the password
+    # on the next pod restart, and always under helm template, which cannot see the old one.
+    password: ""
 
   postgres:
     serviceName: nextcloud-postgres

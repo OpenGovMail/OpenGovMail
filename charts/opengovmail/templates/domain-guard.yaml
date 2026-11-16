@@ -93,6 +93,16 @@ Delete this file once the values it guards can be derived.
     {{- fail (printf "nextcloud.nextcloud.extraEnv %s reads Secret %s, but nextcloudDeps.idpSecretName is %s." .name $ref $idpSecret) }}
   {{- end }}
 {{- end }}
+{{- $adminSecret := .Values.nextcloudDeps.admin.secretName }}
+{{- $ncAdmin := (((.Values.nextcloud).nextcloud).existingSecret) | default dict }}
+{{- if not (and $ncAdmin.enabled (eq ($ncAdmin.secretName | default "") $adminSecret)) }}
+  {{- fail (printf "nextcloud.nextcloud.existingSecret needs enabled: true and secretName: %s (nextcloudDeps.admin.secretName). Otherwise Nextcloud installs with admin/changeme, or reads a Secret that does not exist." $adminSecret) }}
+{{- end }}
+{{- /* The ingress annotation is a literal in the vendored chart's values. */}}
+{{- $ncIssuer := index (((.Values.nextcloud).ingress).annotations | default dict) "cert-manager.io/cluster-issuer" }}
+{{- if and .Values.global.tls.enabled $ncIssuer (ne $ncIssuer .Values.global.tls.issuer) }}
+  {{- fail (printf "nextcloud.ingress.annotations cert-manager.io/cluster-issuer (%s) does not match global.tls.issuer (%s). Set both to the same ClusterIssuer, e.g.:\n  --set global.tls.issuer=%s" $ncIssuer .Values.global.tls.issuer $ncIssuer) }}
+{{- end }}
 {{- end }}
 
 {{- /* Tuwunel signs in through ThunderID and registers with raven's credentials,

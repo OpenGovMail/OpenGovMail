@@ -1,0 +1,39 @@
+name: Helm Chart
+
+on:
+  push:
+    branches: [ main ]
+    paths: [ 'charts/**', '.github/workflows/helm-chart.yml' ]
+  pull_request:
+    paths: [ 'charts/**', '.github/workflows/helm-chart.yml' ]
+
+jobs:
+  render:
+    name: Lint and render
+    runs-on: ubuntu-latest
+    env:
+      CHART: charts/opengovmail
+      # Placeholders for the secrets a first install requires.
+      SECRETS: >-
+        --set global.ravenIdp.clientSecret=ci
+        --set global.ravenIdp.directAuthSecret=ci
+        --set thunderid.configuration.server.security.directAuthSecret=ci
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Helm is preinstalled on the runner.
+      - name: Fetch chart dependencies
+        run: |
+          helm repo add nextcloud https://nextcloud.github.io/helm/
+          helm dependency build "$CHART"
+
+      - name: Lint
+        run: helm lint "$CHART" -f "$CHART/values-example.yaml" $SECRETS
+
+      - name: Render example values
+        run: helm template ci "$CHART" -f "$CHART/values-example.yaml" $SECRETS > /dev/null
+
+      - name: Render default values
+        run: helm template ci "$CHART" --set global.domain=example.com $SECRETS > /dev/null
