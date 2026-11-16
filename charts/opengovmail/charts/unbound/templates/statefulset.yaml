@@ -12,10 +12,13 @@ spec:
       {{- include "unbound.selectorLabels" . | nindent 6 }}
   template:
     metadata:
-      {{- with .Values.podAnnotations }}
       annotations:
+        {{- if .Values.configuration }}
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- end }}
+        {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
-      {{- end }}
+        {{- end }}
       labels:
         {{- include "unbound.selectorLabels" . | nindent 8 }}
     spec:
@@ -48,6 +51,20 @@ spec:
           volumeMounts:
             - name: cache
               mountPath: {{ .Values.persistence.mountPath }}
+            {{- if .Values.configuration }}
+            {{- /* subPath over the image's config path: the entrypoint then skips
+                 generating its own (forwarding, host-sized) config. */}}
+            - name: config
+              mountPath: /opt/unbound/etc/unbound/unbound.conf
+              subPath: unbound.conf
+              readOnly: true
+            {{- end }}
+      {{- if .Values.configuration }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "unbound.fullname" . }}-config
+      {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

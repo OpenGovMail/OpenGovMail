@@ -58,6 +58,75 @@ persistence:
   size: 512Mi
   mountPath: /var/lib/unbound
 
+# unbound.conf, mounted over the image's own. The image entrypoint only writes its
+# default config when none exists, and that default is unsuitable here for two
+# reasons:
+#   - it forwards every query to Cloudflare (forward-records.conf). Spamhaus,
+#     SURBL and other DNS blocklists refuse queries arriving through public
+#     resolvers, so rspamd's RBL checks silently return nothing.
+#   - it sizes its caches from the HOST's memory (GBs), not the pod's limit, so
+#     the pod is OOM-killed as the cache fills.
+# This config resolves recursively from the root servers with caches sized to
+# fit resources.limits.memory. Set to "" to fall back to the image's default.
+configuration: |
+  server:
+    interface: 0.0.0.0@53
+    port: 53
+    do-ip4: yes
+    do-ip6: no            # pod networks are usually IPv4-only
+    do-udp: yes
+    do-tcp: yes
+
+    # Only cluster-internal clients.
+    access-control: 0.0.0.0/0 refuse
+    access-control: 127.0.0.0/8 allow
+    access-control: 10.0.0.0/8 allow
+    access-control: 172.16.0.0/12 allow
+    access-control: 192.168.0.0/16 allow
+
+    # Paths match the mvance/unbound image layout (chroot + trust anchor).
+    directory: "/opt/unbound/etc/unbound"
+    chroot: "/opt/unbound/etc/unbound"
+    username: "_unbound"
+    auto-trust-anchor-file: "var/root.key"
+
+    # Logs to stderr (kubectl logs).
+    use-syslog: no
+    logfile: ""
+    verbosity: 1
+    log-servfail: yes
+
+    # Sized for a 256Mi limit: rrset ~2x msg, total well under the limit.
+    num-threads: 2
+    msg-cache-slabs: 2
+    rrset-cache-slabs: 2
+    infra-cache-slabs: 2
+    key-cache-slabs: 2
+    msg-cache-size: 32m
+    rrset-cache-size: 64m
+    key-cache-size: 16m
+    neg-cache-size: 4m
+    so-reuseport: yes
+    outgoing-range: 4096
+    num-queries-per-thread: 2048
+
+    # Blocklist answers are short-lived and must not be stretched or served stale.
+    cache-min-ttl: 0
+    serve-expired: no
+    prefetch: yes
+    prefetch-key: yes
+
+    edns-buffer-size: 1232
+    qname-minimisation: yes
+    harden-glue: yes
+    harden-dnssec-stripped: yes
+    harden-below-nxdomain: yes
+    hide-identity: yes
+    hide-version: yes
+
+  remote-control:
+    control-enable: no
+
 livenessProbe:
   tcpSocket:
     port: 53
