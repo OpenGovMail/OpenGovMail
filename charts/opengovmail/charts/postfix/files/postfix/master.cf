@@ -148,3 +148,11 @@ submission inet  n       -       n       -       -       smtpd
 {{- end }}
     -o smtpd_relay_restrictions=permit_sasl_authenticated,reject
     -o smtpd_milters=inet:{{ .Values.global.serviceNames.rspamd }}:11332,inet:{{ .Values.global.serviceNames.opendkim }}:8891
+# In-cluster relay for apps such as Nextcloud. No hostPort, so only pods reach it.
+# No STARTTLS: the certificate names the public host, not this Service.
+# ponytail: any pod can relay here; add a NetworkPolicy if the cluster runs untrusted workloads.
+10025     inet  n       -       n       -       -       smtpd
+    -o syslog_name=postfix/relay
+    -o smtpd_tls_security_level=none
+    -o smtpd_sasl_auth_enable=no
+    -o mynetworks=0.0.0.0/0

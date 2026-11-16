@@ -1,0 +1,21 @@
+{{- if .Values.nextcloud.enabled }}
+{{- /*
+Apache config mounted into Nextcloud by nextcloud.nextcloud.extraVolumes.
+
+Nextcloud's .htaccess redirects /.well-known/caldav and /carddav relatively, and
+Traefik terminates TLS, so clients get sent to http:// and find nothing there.
+*/}}
+{{- $host := include "opengovmail.nextcloudHost" . }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nextcloud-apache
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "opengovmail.labels" . | nindent 4 }}
+    app.kubernetes.io/component: nextcloud-apache
+data:
+  well-known.conf: |
+    Redirect 301 /.well-known/caldav https://{{ $host }}/remote.php/dav/
+    Redirect 301 /.well-known/carddav https://{{ $host }}/remote.php/dav/
+{{- end }}
