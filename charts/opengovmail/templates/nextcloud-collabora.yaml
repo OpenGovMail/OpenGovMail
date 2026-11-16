@@ -1,0 +1,29 @@
+{{- if and .Values.nextcloud.enabled .Values.nextcloud.collabora.enabled }}
+{{- /*
+Collabora's Service URL for the before-starting hook, which points richdocuments at it.
+Browsers get the public host from Collabora's discovery, via server_name.
+*/}}
+{{- $c := .Values.nextcloud.collabora }}
+{{- $host := (index ($c.ingress.hosts | default (list dict)) 0).host | default "" }}
+{{- if not $host }}
+{{- fail "nextcloud.collabora.ingress.hosts[0].host is required when nextcloud.collabora.enabled, e.g. office.example.com." }}
+{{- end }}
+{{- if ne ($c.collabora.server_name | default "") $host }}
+{{- fail (printf "nextcloud.collabora.collabora.server_name must be %s, the ingress host, or browsers are sent to the internal Service." $host) }}
+{{- end }}
+{{- $want := printf "https://%s:443" (include "opengovmail.nextcloudHost" .) }}
+{{- $alias := (index ($c.collabora.aliasgroups | default (list dict)) 0).host | default "" }}
+{{- if ne $alias $want }}
+{{- fail (printf "nextcloud.collabora.collabora.aliasgroups[0].host must be %s, or Collabora refuses Nextcloud's files." $want) }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nextcloud-collabora
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "opengovmail.labels" . | nindent 4 }}
+    app.kubernetes.io/component: nextcloud-collabora
+data:
+  url: {{ printf "http://%s:%v" ($c.fullnameOverride | default "collabora") ((($c.service).port) | default 9980) | quote }}
+{{- end }}

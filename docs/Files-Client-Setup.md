@@ -9,6 +9,7 @@ In this guide, `cloud.yourdomain.com` stands for your Nextcloud host, the value 
 Sign in at `https://cloud.yourdomain.com` through ThunderID.
 
 - Your group's shared drives appear as folders in `Files`. An administrator creates each one and gives a ThunderID group access.
+- Click a document, spreadsheet or presentation to edit it in the browser. Others who open the same file edit it with you at the same time.
 - To share a file outside the organisation, open its `Share` panel and create a link. Set an expiry date, and a password if the file needs one.
 - An overwritten file keeps its earlier versions under `Versions`. A deleted file goes to `Deleted files`, where you can restore it.
 
