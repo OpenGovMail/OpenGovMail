@@ -170,6 +170,15 @@ seaweedfs:
     accessKey: raven
     secretKey: ""
     bucket: email-attachments
+    # Nextcloud's files. templates/nextcloud-s3-secret.yaml hands the same credentials to
+    # Nextcloud. Admin on its bucket only: Nextcloud sends x-amz-acl on uploads, and creates
+    # the bucket on a fresh install before bucket-init runs.
+    additionalIdentities:
+      - name: nextcloud
+        accessKey: nextcloud
+        secretKey: ""
+        bucket: nextcloud
+        actions: ["Admin:nextcloud"]
 # ThunderID identity server: a SQLite database seeded from the image, a one-time
 # setup job, and declarative bootstrap data.
 #
@@ -372,6 +381,23 @@ nextcloud:
         mountPath: /etc/apache2/conf-enabled/opengovmail-well-known.conf
         subPath: well-known.conf
 
+    # Files go to SeaweedFS over S3; host, bucket and keys come from
+    # templates/nextcloud-s3-secret.yaml. Turning this on for an existing install hides its files.
+    objectStore:
+      s3:
+        enabled: true
+        ssl: false
+        port: "8333"
+        region: us-east-1
+        usePathStyle: true
+        autoCreate: true
+        existingSecret: nextcloud-s3
+        secretKeys:
+          host: host
+          bucket: bucket
+          accessKey: accessKey
+          secretKey: secretKey
+
     # Credentials for the ThunderID provider, written by templates/nextcloud-oidc.yaml.
     extraEnv:
       - name: OIDC_CLIENT_ID
@@ -390,7 +416,7 @@ nextcloud:
     hooks:
       before-starting: |-
         # Add apps to this list. None are in the base image.
-        for app in user_oidc calendar mail; do
+        for app in user_oidc calendar mail groupfolders; do
           php occ app:install "$app" || php occ app:enable "$app"
         done
         # The image reads the admin password only at first install, so set it on every
