@@ -11,6 +11,10 @@ new host or secret reaches ThunderID on upgrade.
 {{- $clientId := (((.Values.global).nextcloudIdp).clientId) | default "NEXTCLOUD" }}
 {{- $host := include "opengovmail.nextcloudHost" . }}
 {{- $thunderUrl := include "opengovmail.thunderUrl" . }}
+{{- $claims := .Values.nextcloudDeps.claims }}
+{{- if not (and $claims.displayName $claims.email) }}
+  {{- fail "nextcloudDeps.claims.displayName and nextcloudDeps.claims.email are required: the ThunderID user attributes Nextcloud shows as the name and uses as the email." }}
+{{- end }}
 apiVersion: v1
 kind: Secret
 metadata:
@@ -29,15 +33,21 @@ data:
   clientSecret: {{ $clientSecret | b64enc | quote }}
   # Here because values files cannot be templated, and the hook needs the domain.
   discoveryUri: {{ printf "%s/.well-known/openid-configuration" $thunderUrl | b64enc | quote }}
+  # Claims the before-starting hook maps to the display name and email.
+  mappingDisplayName: {{ $claims.displayName | b64enc | quote }}
+  mappingEmail: {{ $claims.email | b64enc | quote }}
 ---
 {{- $job := .Values.nextcloudDeps.registerJob }}
+{{- /* Released under the profile scope, and in the ID token with the email. */}}
+{{- $profile := concat (list $claims.displayName) ($claims.extra | default list) | uniq }}
+{{- $released := append $profile $claims.email | uniq }}
 {{- $app := dict
   "name" "Nextcloud"
   "description" "OpenGovMail collaboration suite"
   "type" "browser"
   "isRegistrationFlowEnabled" false
   "allowedUserTypes" $job.allowedUserTypes
-  "userAttributes" (list "given_name" "family_name" "email" "groups" "name" "ouId")
+  "userAttributes" (concat $released (list "groups" "ouId"))
   "inboundAuthConfig" (list (dict
     "type" "oauth2"
     "config" (dict
@@ -49,12 +59,12 @@ data:
       "tokenEndpointAuthMethod" "client_secret_post"
       "scopes" (list "openid" "profile" "email" "group")
       "scopeClaims" (dict
-        "profile" (list "name" "given_name" "family_name")
-        "email" (list "email" "email_verified")
+        "profile" $profile
+        "email" (list $claims.email "email_verified")
         "group" (list "groups"))
       "token" (dict
-        "idToken" (dict "userAttributes" (list "name" "given_name" "family_name" "email" "groups") "validityPeriod" 3600)
-        "accessToken" (dict "userAttributes" (list "name" "email" "groups") "validityPeriod" 3600)))))
+        "idToken" (dict "userAttributes" (append $released "groups") "validityPeriod" 3600)
+        "accessToken" (dict "userAttributes" (list $claims.displayName $claims.email "groups") "validityPeriod" 3600)))))
 }}
 {{- /* user_oidc sends credentials in the body; basic fails only at the token
      exchange, after the user has already signed in. Without scopeClaims ThunderID
