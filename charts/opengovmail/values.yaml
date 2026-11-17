@@ -409,6 +409,13 @@ nextcloud:
       - name: OIDC_DISCOVERY
         valueFrom:
           secretKeyRef: {name: nextcloud-idp, key: discoveryUri}
+      # The claims named by nextcloudDeps.claims.
+      - name: OIDC_MAPPING_DISPLAY_NAME
+        valueFrom:
+          secretKeyRef: {name: nextcloud-idp, key: mappingDisplayName, optional: true}
+      - name: OIDC_MAPPING_EMAIL
+        valueFrom:
+          secretKeyRef: {name: nextcloud-idp, key: mappingEmail, optional: true}
       - name: COLLABORA_URL
         valueFrom:
           configMapKeyRef: {name: nextcloud-collabora, key: url, optional: true}
@@ -451,8 +458,8 @@ nextcloud:
           --discoveryuri="$OIDC_DISCOVERY" \
           --scope="openid profile email group" \
           --mapping-uid=sub \
-          --mapping-display-name=name \
-          --mapping-email=email \
+          --mapping-display-name="${OIDC_MAPPING_DISPLAY_NAME:-name}" \
+          --mapping-email="${OIDC_MAPPING_EMAIL:-email}" \
           --mapping-groups=groups \
           --group-provisioning=1
 
@@ -542,6 +549,19 @@ nextcloud:
 nextcloudDeps:
   # Release-independent so nothing assumes the release is called opengovmail.
   idpSecretName: nextcloud-idp
+
+  # ThunderID user attributes Nextcloud reads. The defaults are ThunderID's Person
+  # type. ThunderID rejects the application if no allowed user type declares one, so
+  # name your types' attributes here, e.g. for a type with full_name and external_email:
+  #   claims: {displayName: full_name, email: external_email, extra: [given_name]}
+  # A change reaches Nextcloud when its pod next restarts.
+  claims:
+    # Shown as the user's name.
+    displayName: name
+    # The user's address: the organizer of their calendar invitations.
+    email: email
+    # Other profile attributes released to Nextcloud.
+    extra: [given_name, family_name]
 
   # TURN for Talk calls, so they work behind NAT and strict firewalls. coturn runs on the
   # node's network: open 3478/udp, 3478/tcp and minPort-maxPort/udp on the node's firewall.
