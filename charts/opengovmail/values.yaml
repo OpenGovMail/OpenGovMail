@@ -383,6 +383,12 @@ nextcloud:
       - name: OIDC_DISCOVERY
         valueFrom:
           secretKeyRef: {name: nextcloud-idp, key: discoveryUri}
+      - name: TURN_HOST
+        valueFrom:
+          secretKeyRef: {name: nextcloud-turn, key: host, optional: true}
+      - name: TURN_SECRET
+        valueFrom:
+          secretKeyRef: {name: nextcloud-turn, key: secret, optional: true}
 
     # Runs on every start, so a new app, admin password or ThunderID URL takes effect
     # when the Nextcloud pod next restarts. To rotate the client secret, delete Secret
@@ -390,12 +396,18 @@ nextcloud:
     hooks:
       before-starting: |-
         # Add apps to this list. None are in the base image.
-        for app in user_oidc calendar mail; do
+        for app in user_oidc calendar mail spreed; do
           php occ app:install "$app" || php occ app:enable "$app"
         done
         # The image reads the admin password only at first install, so set it on every
         # start. The Secret wins over a password changed in the UI.
         OC_PASS="$NEXTCLOUD_ADMIN_PASSWORD" php occ user:resetpassword --password-from-env "$NEXTCLOUD_ADMIN_USER"
+        # Talk's STUN and TURN: the coturn in templates/nextcloud-turn.yaml. Set rather than
+        # added, so restarts don't stack duplicates.
+        if [ -n "${TURN_HOST:-}" ]; then
+          php occ config:app:set spreed stun_servers --value="[\"$TURN_HOST\"]"
+          php occ config:app:set spreed turn_servers --value="[{\"schemes\":\"turn\",\"server\":\"$TURN_HOST\",\"secret\":\"$TURN_SECRET\",\"protocols\":\"udp,tcp\"}]"
+        fi
         # group-provisioning makes ThunderID the owner of group membership: each sign-in
         # drops the user from Nextcloud groups ThunderID does not send, admin included.
         php occ user_oidc:provider ThunderID \
@@ -463,6 +475,28 @@ nextcloud:
 nextcloudDeps:
   # Release-independent so nothing assumes the release is called opengovmail.
   idpSecretName: nextcloud-idp
+
+  # TURN for Talk calls, so they work behind NAT and strict firewalls. coturn runs on the
+  # node's network: open 3478/udp, 3478/tcp and minPort-maxPort/udp on the node's firewall.
+  # ponytail: no High Performance Backend, so calls are peer to peer and suit about four or
+  # five people; add Talk's HPB when meetings regularly grow past that.
+  turn:
+    enabled: true
+    image:
+      repository: coturn/coturn
+      tag: "4.18.0"
+    # Empty uses nextcloud.nextcloud.host, which must then resolve to the node coturn runs on.
+    host: ""
+    # The node's public IP when the node only has a private one, as on some cloud VMs.
+    externalIP: ""
+    # Relay ports; each call leg uses one. Size the range for concurrent calls.
+    minPort: 49160
+    maxPort: 49200
+    # Empty generates one on first install and keeps it.
+    secret: ""
+    resources:
+      requests: {cpu: 50m, memory: 32Mi}
+      limits: {memory: 256Mi}
 
   admin:
     secretName: nextcloud-admin
