@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-11-17
+
+### Added
+
+- `nextcloudDeps.claims` names the ThunderID attributes Nextcloud reads for the display name, the email address and the other profile fields. An install whose user types name them differently, such as `full_name` or `external_email`, can now register Nextcloud. The defaults are the previous fixed names, so nothing changes without it ([#411](https://github.com/OpenGovMail/OpenGovMail/pull/411)).
+
+### Changed
+
+- The postfix (`opengovmail-smtp`) and opendkim (`opengovmail-dkim`) images are pinned to `0.6.1`.
+
 ## [0.6.0] - 2026-11-17
 
 ### Added
@@ -236,5 +246,6 @@ Raven into the repository.
 
 https://github.com/OpenGovMail/OpenGovMail/releases/tag/v0.1.0
 
-[unreleased]: https://github.com/OpenGovMail/OpenGovMail/compare/v0.6.0...HEAD
+[unreleased]: https://github.com/OpenGovMail/OpenGovMail/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/OpenGovMail/OpenGovMail/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/OpenGovMail/OpenGovMail/compare/v0.5.1...v0.6.0
