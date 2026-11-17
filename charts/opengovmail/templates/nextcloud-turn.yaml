@@ -1,0 +1,82 @@
+{{- if and .Values.nextcloud.enabled .Values.nextcloudDeps.turn.enabled }}
+{{- /*
+coturn for Nextcloud Talk. The before-starting hook gives Talk the host and shared secret
+from the Secret below; Talk hands browsers short-lived credentials derived from it.
+*/}}
+{{- $t := .Values.nextcloudDeps.turn }}
+{{- $secret := include "opengovmail.keptSecret" (dict "ctx" . "secret" "nextcloud-turn" "key" "secret" "value" ($t.secret | default "") "flag" "nextcloudDeps.turn.secret" "owner" "Talk" "rotatable" true) }}
+{{- $host := $t.host | default (include "opengovmail.nextcloudHost" .) }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: nextcloud-turn
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "opengovmail.labels" . | nindent 4 }}
+    app.kubernetes.io/component: nextcloud-turn
+type: Opaque
+stringData:
+  host: {{ printf "%s:3478" $host | quote }}
+  secret: {{ $secret | quote }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-turn
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "opengovmail.labels" . | nindent 4 }}
+    app.kubernetes.io/component: nextcloud-turn
+spec:
+  replicas: 1
+  # Host ports: a second pod could not bind them during a rolling update.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "opengovmail.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: nextcloud-turn
+  template:
+    metadata:
+      labels:
+        {{- include "opengovmail.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: nextcloud-turn
+      annotations:
+        checksum/secret: {{ $secret | sha256sum }}
+    spec:
+      # TURN needs a whole relay port range, which hostPort cannot express.
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      containers:
+        - name: coturn
+          image: {{ $t.image.repository }}:{{ $t.image.tag }}
+          args:
+            - --listening-port=3478
+            - --min-port={{ $t.minPort }}
+            - --max-port={{ $t.maxPort }}
+            {{- with $t.externalIP }}
+            - --external-ip={{ . }}
+            {{- end }}
+            - --use-auth-secret
+            - --static-auth-secret=$(TURN_SECRET)
+            - --realm={{ $host }}
+            - --fingerprint
+            # DTLS and the admin CLI are off by default in coturn 4.18.
+            - --no-tls
+            - --no-multicast-peers
+            # No relaying into private ranges: the cluster network is one of them.
+            - --denied-peer-ip=0.0.0.0-0.255.255.255
+            - --denied-peer-ip=10.0.0.0-10.255.255.255
+            - --denied-peer-ip=100.64.0.0-100.127.255.255
+            - --denied-peer-ip=127.0.0.0-127.255.255.255
+            - --denied-peer-ip=169.254.0.0-169.254.255.255
+            - --denied-peer-ip=172.16.0.0-172.31.255.255
+            - --denied-peer-ip=192.168.0.0-192.168.255.255
+            - --log-file=stdout
+          env:
+            - name: TURN_SECRET
+              valueFrom:
+                secretKeyRef: {name: nextcloud-turn, key: secret}
+          resources:
+            {{- toYaml $t.resources | nindent 12 }}
+{{- end }}
