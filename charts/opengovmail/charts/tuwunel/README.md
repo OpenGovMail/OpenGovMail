@@ -39,7 +39,7 @@ A localpart that is already taken is an error rather than a random ID (`unique_i
 
 ThunderID only releases a claim the application lists for userinfo and maps to a requested scope. The registration Job sets both, mapping `username` to the `profile` scope. The user type must define a `username` attribute; ThunderID's built-in `Person` type does.
 
-Only user types in `tuwunelDeps.registerJob.allowedUserTypes` can sign in. Add the user type of each mail domain's organization unit there.
+ThunderID v1.0.2 does not limit sign-in by user type, so any ThunderID user can sign in. `tuwunelDeps.registerJob.allowedUserTypes` decides which attributes ThunderID may release, and the registration Job checks that those types declare `username`. Add the user type of each mail domain's organization unit there.
 
 ## DNS
 

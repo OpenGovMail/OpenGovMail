@@ -170,6 +170,15 @@ seaweedfs:
     accessKey: raven
     secretKey: ""
     bucket: email-attachments
+    # Nextcloud's files. templates/nextcloud-s3-secret.yaml hands the same credentials to
+    # Nextcloud. Admin on its bucket only: Nextcloud sends x-amz-acl on uploads, and creates
+    # the bucket on a fresh install before bucket-init runs.
+    additionalIdentities:
+      - name: nextcloud
+        accessKey: nextcloud
+        secretKey: ""
+        bucket: nextcloud
+        actions: ["Admin:nextcloud"]
 # ThunderID identity server: a SQLite database seeded from the image, a one-time
 # setup job, and declarative bootstrap data.
 #
@@ -372,6 +381,23 @@ nextcloud:
         mountPath: /etc/apache2/conf-enabled/opengovmail-well-known.conf
         subPath: well-known.conf
 
+    # Files go to SeaweedFS over S3; host, bucket and keys come from
+    # templates/nextcloud-s3-secret.yaml. Turning this on for an existing install hides its files.
+    objectStore:
+      s3:
+        enabled: true
+        ssl: false
+        port: "8333"
+        region: us-east-1
+        usePathStyle: true
+        autoCreate: true
+        existingSecret: nextcloud-s3
+        secretKeys:
+          host: host
+          bucket: bucket
+          accessKey: accessKey
+          secretKey: secretKey
+
     # Credentials for the ThunderID provider, written by templates/nextcloud-oidc.yaml.
     extraEnv:
       - name: OIDC_CLIENT_ID
@@ -383,6 +409,9 @@ nextcloud:
       - name: OIDC_DISCOVERY
         valueFrom:
           secretKeyRef: {name: nextcloud-idp, key: discoveryUri}
+      - name: COLLABORA_URL
+        valueFrom:
+          configMapKeyRef: {name: nextcloud-collabora, key: url, optional: true}
       - name: TURN_HOST
         valueFrom:
           secretKeyRef: {name: nextcloud-turn, key: host, optional: true}
@@ -396,12 +425,18 @@ nextcloud:
     hooks:
       before-starting: |-
         # Add apps to this list. None are in the base image.
-        for app in user_oidc calendar mail spreed; do
+        for app in user_oidc calendar mail groupfolders spreed; do
           php occ app:install "$app" || php occ app:enable "$app"
         done
         # The image reads the admin password only at first install, so set it on every
         # start. The Secret wins over a password changed in the UI.
         OC_PASS="$NEXTCLOUD_ADMIN_PASSWORD" php occ user:resetpassword --password-from-env "$NEXTCLOUD_ADMIN_USER"
+        # Document editing, when nextcloud.collabora.enabled; URL from templates/nextcloud-collabora.yaml.
+        if [ -n "${COLLABORA_URL:-}" ]; then
+          php occ app:install richdocuments || php occ app:enable richdocuments
+          php occ config:app:set richdocuments wopi_url --value="$COLLABORA_URL"
+          php occ richdocuments:activate-config
+        fi
         # Talk's STUN and TURN: the coturn in templates/nextcloud-turn.yaml. Set rather than
         # added, so restarts don't stack duplicates.
         if [ -n "${TURN_HOST:-}" ]; then
@@ -420,6 +455,38 @@ nextcloud:
           --mapping-email=email \
           --mapping-groups=groups \
           --group-provisioning=1
+
+  # Collabora for document editing: its own Deployment and hostname. Set ingress.hosts,
+  # ingress.tls, collabora.server_name and collabora.aliasgroups per deployment;
+  # nextcloud-collabora.yaml checks them.
+  collabora:
+    enabled: true
+    fullnameOverride: collabora
+    # One replica: several need routing pinned by WOPISrc, which this Traefik setup lacks.
+    autoscaling:
+      enabled: false
+    # Stop the old pod first: a surge pod needs CPU a small node may not have spare.
+    deployment:
+      type: Recreate
+    collabora:
+      # TLS ends at Traefik. The admin console would serve the chart's default password.
+      extra_params: --o:ssl.enable=false --o:ssl.termination=true --o:admin_console.enable=false
+      # [{host: "https://<nextcloud.nextcloud.host>:443"}]
+      aliasgroups: []
+      # The ingress host. Discovery advertises it, and richdocuments sends browsers there.
+      server_name: ""
+    ingress:
+      enabled: true
+      className: traefik
+      annotations:
+        # Must equal global.tls.issuer; domain-guard.yaml fails the render otherwise.
+        cert-manager.io/cluster-issuer: le-prod
+        traefik.ingress.kubernetes.io/router.entrypoints: websecure
+      hosts: []
+      tls: []
+    resources:
+      requests: {cpu: 250m, memory: 512Mi}
+      limits: {memory: 1536Mi}
 
   # Bundled databases stay off: both pull from bitnamilegacy, archived Aug 2025.
   internalDatabase:
