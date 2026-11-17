@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-17
+
+### Added
+
+- Shared calendars over CalDAV. ThunderID groups sync into Nextcloud, invitations go out through Postfix, and `docs/Calendar-Client-Setup.md` covers the clients ([#406](https://github.com/OpenGovMail/OpenGovMail/pull/406)).
+- Shared drives. Nextcloud stores files in SeaweedFS, and the groupfolders app adds drives owned by a group. `docs/Files-Client-Setup.md` covers the clients ([#362](https://github.com/OpenGovMail/OpenGovMail/pull/362), [#407](https://github.com/OpenGovMail/OpenGovMail/pull/407)).
+- Document editing in Collabora ([#407](https://github.com/OpenGovMail/OpenGovMail/pull/407)).
+- Online meetings in Nextcloud Talk, with a coturn TURN server so calls work behind NAT and strict firewalls ([#409](https://github.com/OpenGovMail/OpenGovMail/pull/409)).
+- The SeaweedFS chart takes extra S3 identities, each scoped to its own bucket ([#362](https://github.com/OpenGovMail/OpenGovMail/pull/362)).
+
+### Changed
+
+- The postfix (`opengovmail-smtp`) and opendkim (`opengovmail-dkim`) images are pinned to `0.6.0`.
+- Nextcloud sends mail through a plain relay port on a new `postfix-relay` Service. An exposed Postfix Service must keep `postfix.service.externalTrafficPolicy: Local`, the default, or the chart won't render ([#406](https://github.com/OpenGovMail/OpenGovMail/pull/406)).
+- With Nextcloud enabled, Collabora is on by default. Set `nextcloud.collabora.ingress.hosts`, `ingress.tls`, `collabora.server_name` and `collabora.aliasgroups`, and add a DNS record for its host, as `values-example.yaml` shows. The chart won't render without them. Set `nextcloud.collabora.enabled=false` to leave editing off ([#407](https://github.com/OpenGovMail/OpenGovMail/pull/407)).
+- With Nextcloud enabled, files are stored in SeaweedFS. On an existing install, files already on the Nextcloud volume become invisible to Nextcloud: move them first, or set `nextcloud.nextcloud.objectStore.s3.enabled=false`. Calendars and contacts are in the database and unaffected. Size the SeaweedFS volume for users' files; the default is 10Gi ([#407](https://github.com/OpenGovMail/OpenGovMail/pull/407)).
+- With Nextcloud enabled, the TURN server for Talk runs on the node's network. Open 3478/udp, 3478/tcp and 49160-49200/udp on the node's firewall, and make sure Nextcloud's host resolves to that node, or set `nextcloudDeps.turn.host`. Set `nextcloudDeps.turn.enabled=false` to leave it off ([#409](https://github.com/OpenGovMail/OpenGovMail/pull/409)).
+
+### Fixed
+
+- OpenDKIM signs outgoing mail ([#405](https://github.com/OpenGovMail/OpenGovMail/pull/405)).
+- Tuwunel calls work through a MatrixRTC backend. It is off by default and needs `tuwunel.matrixRtc.enabled`, a DNS record and two open ports; see the Calls section of `charts/tuwunel/README.md` ([#404](https://github.com/OpenGovMail/OpenGovMail/pull/404)).
+- The Tuwunel README describes what `allowedUserTypes` does ([#408](https://github.com/OpenGovMail/OpenGovMail/pull/408)).
+
 ## [0.5.1]
 
 Raven v0.9.1, whose mail domains come from a per-OU mapping in raven.yaml (`raven.organizationUnitDomains`), and the groundwork for Nextcloud's collaboration apps.
@@ -211,3 +235,6 @@ Raven into the repository.
 ### Full Changelog
 
 https://github.com/OpenGovMail/OpenGovMail/releases/tag/v0.1.0
+
+[unreleased]: https://github.com/OpenGovMail/OpenGovMail/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/OpenGovMail/OpenGovMail/compare/v0.5.1...v0.6.0
