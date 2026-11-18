@@ -416,7 +416,8 @@ func TestBuildTLSConfigLoadsCertificate(t *testing.T) {
 func TestBuildTLSConfigSelectsCertificateByServerName(t *testing.T) {
 	certDir := t.TempDir()
 	writeTestCertificate(t, certDir, "example.com", 1)
-	writeTestCertificate(t, certDir, "example.org", 2)
+	writeTestCertificateFor(t, certDir, "example.org", []string{"example.org", "mail.example.org"}, 2,
+		time.Now().Add(-time.Hour), time.Now().Add(24*time.Hour))
 
 	tlsConfig, err := buildTLSConfig(certDir, "example.com", "example.com", "example.org")
 	if err != nil {
@@ -445,6 +446,30 @@ func TestBuildTLSConfigSelectsCertificateByServerName(t *testing.T) {
 				t.Errorf("serial = %d, want %d", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestBuildTLSConfigSkipsExpiredSecondaryCertificate(t *testing.T) {
+	certDir := t.TempDir()
+	now := time.Now()
+	writeTestCertificateFor(t, certDir, "example.com", []string{"example.com", "example.org", "mail.example.org"}, 1,
+		now.Add(-2*time.Hour), now.Add(24*time.Hour))
+	writeTestCertificateFor(t, certDir, "example.org", []string{"example.org"}, 2,
+		now.Add(-48*time.Hour), now.Add(-24*time.Hour))
+
+	tlsConfig, err := buildTLSConfig(certDir, "example.com", "example.com", "example.org")
+	if err != nil {
+		t.Fatalf("buildTLSConfig() error = %v", err)
+	}
+
+	for _, serverName := range []string{"example.com", "example.org", "mail.example.org"} {
+		cert, err := tlsConfig.GetCertificate(&tls.ClientHelloInfo{ServerName: serverName})
+		if err != nil {
+			t.Fatalf("GetCertificate(%q) error = %v", serverName, err)
+		}
+		if got := certificateSerial(t, cert); got != 1 {
+			t.Errorf("GetCertificate(%q) serial = %d, want the valid primary certificate (1)", serverName, got)
+		}
 	}
 }
 
@@ -659,18 +684,24 @@ func outlookRequest(email string) string {
 
 func writeTestCertificate(t *testing.T, certDir, domain string, serial int64) {
 	t.Helper()
+	writeTestCertificateFor(t, certDir, domain, []string{domain}, serial,
+		time.Now().Add(-time.Hour), time.Now().Add(24*time.Hour))
+}
+
+func writeTestCertificateFor(t *testing.T, certDir, lineageName string, dnsNames []string, serial int64, notBefore, notAfter time.Time) {
+	t.Helper()
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		t.Fatalf("generate key: %v", err)
 	}
 	template := &x509.Certificate{
 		SerialNumber: big.NewInt(serial),
-		Subject:      pkix.Name{CommonName: domain},
-		NotBefore:    time.Now().Add(-time.Hour),
-		NotAfter:     time.Now().Add(24 * time.Hour),
+		Subject:      pkix.Name{CommonName: dnsNames[0]},
+		NotBefore:    notBefore,
+		NotAfter:     notAfter,
 		KeyUsage:     x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-		DNSNames:     []string{domain},
+		DNSNames:     dnsNames,
 	}
 	der, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
 	if err != nil {
@@ -681,7 +712,7 @@ func writeTestCertificate(t *testing.T, certDir, domain string, serial int64) {
 		t.Fatalf("marshal key: %v", err)
 	}
 
-	lineage := filepath.Join(certDir, domain)
+	lineage := filepath.Join(certDir, lineageName)
 	if err := os.MkdirAll(lineage, 0o700); err != nil {
 		t.Fatalf("create lineage: %v", err)
 	}

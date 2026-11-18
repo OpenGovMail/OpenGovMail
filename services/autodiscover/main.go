@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"encoding/xml"
 	"errors"
@@ -493,17 +494,65 @@ func newCertStore(certDir, primaryDomain string, domains []string) (*certStore, 
 
 func (s *certStore) getCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 	host := normalizeHost(hello.ServerName)
+
+	// Prefer an exact host lineage, then mail.<domain>, then the primary. A
+	// lineage left over from an earlier certificate layout can be expired or
+	// cover a different name, so only use one that is currently valid for the
+	// requested host. Otherwise fall back to the primary certificate, which the
+	// single shared certbot lineage uses to cover every domain.
+	candidates := make([]*certReloader, 0, 3)
 	if reloader, ok := s.byHost[host]; ok {
-		return reloader.getCertificate(hello)
+		candidates = append(candidates, reloader)
 	}
-	// Autodiscovery is also served on mail.<domain>; that host has no lineage of
-	// its own, so use the domain's certificate.
 	if domain, ok := strings.CutPrefix(host, "mail."); ok {
-		if reloader, ok := s.byHost[domain]; ok {
-			return reloader.getCertificate(hello)
+		if reloader, ok := s.byHost[domain]; ok && reloader != s.primary {
+			candidates = append(candidates, reloader)
 		}
 	}
-	return s.primary.getCertificate(hello)
+	candidates = append(candidates, s.primary)
+
+	// The primary certificate is the safe fallback even when another lineage is
+	// present but unusable.
+	fallback, fallbackErr := s.primary.getCertificate(hello)
+	for _, reloader := range candidates {
+		cert, err := reloader.getCertificate(hello)
+		if err != nil {
+			if fallbackErr == nil {
+				fallbackErr = err
+			}
+			continue
+		}
+		if fallback == nil {
+			fallback = cert
+		}
+		if certificateUsable(cert, host, time.Now()) {
+			return cert, nil
+		}
+	}
+	if fallback != nil {
+		return fallback, nil
+	}
+	if fallbackErr != nil {
+		return nil, fallbackErr
+	}
+	return nil, errors.New("certificate is not loaded")
+}
+
+// certificateUsable reports whether cert is inside its validity window and
+// covers host. An empty host skips the name check, which keeps the first
+// handshake without SNI working.
+func certificateUsable(cert *tls.Certificate, host string, now time.Time) bool {
+	if cert == nil || len(cert.Certificate) == 0 {
+		return false
+	}
+	leaf, err := x509.ParseCertificate(cert.Certificate[0])
+	if err != nil {
+		return false
+	}
+	if now.Before(leaf.NotBefore) || now.After(leaf.NotAfter) {
+		return false
+	}
+	return host == "" || leaf.VerifyHostname(host) == nil
 }
 
 func buildTLSConfig(certDir, primaryDomain string, domains ...string) (*tls.Config, error) {

@@ -39,8 +39,10 @@ When `TLS_ENABLED=true`, the service loads
 1.2 or newer, and reloads the pair after certbot renews it. If another
 configured domain has its own lineage under `TLS_CERT_DIR`, the certificate
 matching the requested host is served instead; hosts without a lineage, such as
-`mail.<domain>`, fall back to the primary certificate. Failed reloads are logged
-and the last good certificate stays in use. In Kubernetes TLS is terminated by
+`mail.<domain>`, fall back to the primary certificate. A certificate that is
+expired or does not cover the requested host is skipped, so a stale lineage
+cannot hide a valid primary certificate. Failed reloads are logged and the last
+good certificate stays in use. In Kubernetes TLS is terminated by
 the Ingress, so `TLS_ENABLED` stays `false`.
 
 ## Local run
