@@ -36,8 +36,12 @@ method return `405`.
 
 When `TLS_ENABLED=true`, the service loads
 `<TLS_CERT_DIR>/<primary domain>/fullchain.pem` and `privkey.pem`, requires TLS
-1.2 or newer, and reloads the pair after certbot renews it. In Kubernetes TLS
-is terminated by the Ingress, so `TLS_ENABLED` stays `false`.
+1.2 or newer, and reloads the pair after certbot renews it. If another
+configured domain has its own lineage under `TLS_CERT_DIR`, the certificate
+matching the requested host is served instead; hosts without a lineage, such as
+`mail.<domain>`, fall back to the primary certificate. Failed reloads are logged
+and the last good certificate stays in use. In Kubernetes TLS is terminated by
+the Ingress, so `TLS_ENABLED` stays `false`.
 
 ## Local run
 

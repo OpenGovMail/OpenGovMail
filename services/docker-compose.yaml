@@ -200,9 +200,10 @@ services:
     image: ghcr.io/opengovmail/opengovmail-certbot:main
     container_name: certbot
     volumes:
+      - ../conf/opengovmail.yaml:/etc/certbot/opengovmail.yaml:ro
       - ./opengovmail-config/certbot/keys/etc:/etc/letsencrypt
       - ./opengovmail-config/certbot/keys/log:/var/log/letsencrypt
-      - ./opengovmail-config/certbot/keys/lib:/var/lib/letsencrypt"
+      - ./opengovmail-config/certbot/keys/lib:/var/lib/letsencrypt
     ports:
       - "80:80"
     networks:

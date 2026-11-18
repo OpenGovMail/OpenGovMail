@@ -413,6 +413,41 @@ func TestBuildTLSConfigLoadsCertificate(t *testing.T) {
 	}
 }
 
+func TestBuildTLSConfigSelectsCertificateByServerName(t *testing.T) {
+	certDir := t.TempDir()
+	writeTestCertificate(t, certDir, "example.com", 1)
+	writeTestCertificate(t, certDir, "example.org", 2)
+
+	tlsConfig, err := buildTLSConfig(certDir, "example.com", "example.com", "example.org")
+	if err != nil {
+		t.Fatalf("buildTLSConfig() error = %v", err)
+	}
+
+	tests := []struct {
+		name       string
+		serverName string
+		want       int64
+	}{
+		{name: "primary domain", serverName: "example.com", want: 1},
+		{name: "secondary domain", serverName: "example.org", want: 2},
+		{name: "secondary mail host", serverName: "mail.example.org", want: 2},
+		{name: "case and trailing dot", serverName: "EXAMPLE.ORG.", want: 2},
+		{name: "unknown host falls back", serverName: "unknown.example.net", want: 1},
+		{name: "empty server name falls back", serverName: "", want: 1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cert, err := tlsConfig.GetCertificate(&tls.ClientHelloInfo{ServerName: tt.serverName})
+			if err != nil {
+				t.Fatalf("GetCertificate(%q) error = %v", tt.serverName, err)
+			}
+			if got := certificateSerial(t, cert); got != tt.want {
+				t.Errorf("serial = %d, want %d", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestBuildTLSConfigRejectsMissingCertificate(t *testing.T) {
 	if _, err := buildTLSConfig(t.TempDir(), "example.com"); err == nil {
 		t.Fatal("buildTLSConfig() error = nil, want an error for missing files")

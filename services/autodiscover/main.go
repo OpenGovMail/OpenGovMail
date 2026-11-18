@@ -413,6 +413,7 @@ func (r *certReloader) getCertificate(*tls.ClientHelloInfo) (*tls.Certificate, e
 	// just after a check is picked up on the next one.
 	if cert == nil || time.Since(lastLoad) > time.Minute {
 		if err := r.reload(); err != nil {
+			log.Printf("WARN: reload certificate %s: %v", r.fullchainPath, err)
 			r.mu.Lock()
 			r.lastErr = err
 			r.mu.Unlock()
@@ -432,6 +433,7 @@ func (r *certReloader) getCertificate(*tls.ClientHelloInfo) (*tls.Certificate, e
 	fullchainInfo, err := os.Stat(r.fullchainPath)
 	if err == nil && fullchainInfo.ModTime().After(modTime) {
 		if err := r.reload(); err != nil {
+			log.Printf("WARN: reload certificate %s: %v", r.fullchainPath, err)
 			r.mu.Lock()
 			r.lastErr = err
 			r.mu.Unlock()
@@ -454,14 +456,64 @@ func (r *certReloader) getCertificate(*tls.ClientHelloInfo) (*tls.Certificate, e
 	return cert, nil
 }
 
-func buildTLSConfig(certDir, primaryDomain string) (*tls.Config, error) {
-	reloader, err := newCertReloader(certDir, primaryDomain)
+// certStore serves the certificate for the domain named in the TLS handshake.
+// Certbot's default layout is one lineage per domain, so a deployment that
+// issues separate certificates for each mail domain can present the matching
+// one. If a domain has no lineage, the primary certificate is used, which is
+// also what a single SAN certificate covering every domain relies on.
+type certStore struct {
+	primary *certReloader
+	byHost  map[string]*certReloader
+}
+
+func newCertStore(certDir, primaryDomain string, domains []string) (*certStore, error) {
+	primary, err := newCertReloader(certDir, primaryDomain)
+	if err != nil {
+		return nil, err
+	}
+
+	store := &certStore{
+		primary: primary,
+		byHost:  map[string]*certReloader{normalizeHost(primaryDomain): primary},
+	}
+	for _, domain := range domains {
+		domain = normalizeHost(domain)
+		if domain == "" || store.byHost[domain] != nil {
+			continue
+		}
+		reloader, err := newCertReloader(certDir, domain)
+		if err != nil {
+			log.Printf("WARN: no certificate for %s (%v); using the primary certificate", domain, err)
+			continue
+		}
+		store.byHost[domain] = reloader
+	}
+	return store, nil
+}
+
+func (s *certStore) getCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
+	host := normalizeHost(hello.ServerName)
+	if reloader, ok := s.byHost[host]; ok {
+		return reloader.getCertificate(hello)
+	}
+	// Autodiscovery is also served on mail.<domain>; that host has no lineage of
+	// its own, so use the domain's certificate.
+	if domain, ok := strings.CutPrefix(host, "mail."); ok {
+		if reloader, ok := s.byHost[domain]; ok {
+			return reloader.getCertificate(hello)
+		}
+	}
+	return s.primary.getCertificate(hello)
+}
+
+func buildTLSConfig(certDir, primaryDomain string, domains ...string) (*tls.Config, error) {
+	store, err := newCertStore(certDir, primaryDomain, domains)
 	if err != nil {
 		return nil, err
 	}
 	return &tls.Config{
 		MinVersion:     tls.VersionTLS12,
-		GetCertificate: reloader.getCertificate,
+		GetCertificate: store.getCertificate,
 	}, nil
 }
 
@@ -524,7 +576,11 @@ func main() {
 	srv := newServer(addr, handler)
 
 	if tlsEnabled {
-		tlsConfig, err := buildTLSConfig(tlsCertDir, s.primary)
+		domains := make([]string, 0, len(cfg.Domains))
+		for _, d := range cfg.Domains {
+			domains = append(domains, d.Domain)
+		}
+		tlsConfig, err := buildTLSConfig(tlsCertDir, s.primary, domains...)
 		if err != nil {
 			log.Fatalf("TLS configuration error: %v", err)
 		}

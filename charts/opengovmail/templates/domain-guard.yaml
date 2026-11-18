@@ -133,9 +133,12 @@ Delete this file once the values it guards can be derived.
 {{- /* Autodiscover's Ingress reuses the cert-manager Secrets from certificate.yaml.
      If its hosts are not in the effective TLS domain list, clients get a
      certificate-name mismatch and fall back to manual configuration. Check the
-     effective list (empty global.tls.domains derives both standard hosts). */}}
+     effective list (empty global.tls.domains derives both standard hosts).
+
+     Only applies when this Ingress terminates TLS. An HTTP-only Ingress ignores
+     these values, so disabling TLS must not fail the render. */}}
 {{- $autodiscover := .Values.autodiscover | default dict }}
-{{- if and $autodiscover.enabled (((.Values.autodiscover).ingress).enabled) }}
+{{- if and $autodiscover.enabled (((.Values.autodiscover).ingress).enabled) ((((.Values.autodiscover).ingress).tls).enabled) }}
 {{- $autodiscoverDomains := $autodiscover.domains | default (list (include "opengovmail.domain" .)) }}
 {{- $autodiscoverDomain := first $autodiscoverDomains }}
 {{- $autodiscoverMailHost := ((.Values.global).mailHostname) | default (printf "mail.%s" $autodiscoverDomain) }}

@@ -231,7 +231,7 @@ jobs:
 
   build-autodiscover:
     needs: detect-changes
-    if: needs.detect-changes.outputs.autodiscover == 'true'
+    if: github.ref_type == 'tag' || needs.detect-changes.outputs.autodiscover == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -255,9 +255,12 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-autodiscover
+          # latest follows main only, not every release tag.
+          flavor: latest=false
           tags: |
             type=ref,event=branch
-            type=sha,prefix={{branch}}-
+            type=sha,prefix={{branch}}-,enable=${{ github.ref_type == 'branch' }}
+            type=semver,pattern={{version}}
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push Docker image
