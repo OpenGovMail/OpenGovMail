@@ -19,4 +19,31 @@ spec:
     - {{ . }}
   renewBefore: {{ $.Values.global.tls.renewBefore | default "720h" }}
 {{- end }}
+{{- $tid := .Values.thunderid | default dict }}
+{{- if and $tid.enabled ($tid.declarativeResources).enabled (eq ((($tid.declarativeResources).secret).name) "thunderid-tls") }}
+---
+# ThunderID's certificate, issued only for the reserved name thunderid-tls so a Secret
+# you manage yourself is left alone. Its setup job is a pre-install hook that mounts
+# it, so it's issued by an earlier hook; a regular resource would appear after the job.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: thunderid-tls
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "opengovmail.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-20"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  secretName: thunderid-tls
+  issuerRef:
+    name: {{ .Values.global.tls.issuer }}
+    kind: ClusterIssuer
+  commonName: {{ include "opengovmail.domain" . }}
+  dnsNames:
+    - {{ include "opengovmail.domain" . }}
+  renewBefore: {{ .Values.global.tls.renewBefore | default "720h" }}
+{{- end }}
 {{- end }}

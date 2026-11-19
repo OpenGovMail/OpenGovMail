@@ -87,6 +87,9 @@ ingress:
 wellKnown:
   enabled: true
   tlsSecretName: ""
+  # Set by the opengovmail chart, whose certificate.yaml issues mail.<domain> and
+  # <domain>. When it issues this Secret, cert-manager isn't asked for it again.
+  certificateFromParent: false
 
 # Voice and video calls (Element Call / MatrixRTC). Tuwunel carries no media
 # itself: this deploys a LiveKit SFU, which relays audio and video, and
