@@ -1,6 +1,6 @@
-# Let's Encrypt ClusterIssuers using HTTP-01 via Traefik. Use instead of
-# infra/bootstrap.sh when DNS is not on Cloudflare. Needs the mail host's A record
-# pointing at the node and inbound port 80 open.
+# Let's Encrypt ClusterIssuers using HTTP-01 via Traefik. Needs every hostname
+# (mail.<domain>, <domain> and any collaboration hosts) pointing at the node and
+# inbound port 80 open.
 #
 #   kubectl apply -f infra/clusterissuers-http01.yaml
 #   kubectl get clusterissuer   # le-staging, le-prod -> READY=True

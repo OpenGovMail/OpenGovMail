@@ -14,3 +14,26 @@ Check out our [Good first issues](https://github.com/OpenGovMail/OpenGovMail/iss
 - Feel free to make a draft Pull Request so maintainers can watch your changes and help you out whenever possible.
 - Once you are happy with your changes, make a Pull Request against our main branch.
 - Our maintainers will look over your changes, request changes if needed and merge it into the repository. 
+
+## Keeping your fork up to date
+
+Add this repository as `upstream` once:
+
+```bash
+git remote add upstream https://github.com/OpenGovMail/OpenGovMail.git
+```
+
+Then bring your `main` and your feature branch up to date:
+
+```bash
+git fetch upstream
+git switch main
+git merge --ff-only upstream/main
+git push origin main
+
+git switch my-feature
+git rebase main
+git push --force-with-lease
+```
+
+To run your changes on a server, see [Running your own build](../dev/README.md#running-your-own-build-on-kubernetes).

@@ -41,21 +41,20 @@ kubectl get pods -n cert-manager
 
 ---
 
-## Step 2 — Bootstrap ClusterIssuers (once per cluster)
+## Step 2: Create the certificate issuers (once per cluster)
 
-The bootstrap script creates:
-- A Cloudflare API token Secret in the `cert-manager` namespace
-- `le-staging` ClusterIssuer (Let's Encrypt staging — untrusted, no rate limits)
-- `le-prod` ClusterIssuer (Let's Encrypt prod — trusted, rate limited)
+This creates two Let's Encrypt ClusterIssuers:
+- `le-staging`: untrusted certificates, no rate limits, for testing
+- `le-prod`: trusted certificates, rate limited
 
-You will need:
-- A Cloudflare API token scoped to `Zone:Read` and `DNS:Edit` for your domain
-- An email address for Let's Encrypt notifications
+They use the HTTP-01 challenge: Let's Encrypt checks each hostname over port 80. Before installing OpenGovMail:
+- Open port 80 on the server to the internet.
+- Point every hostname at the server: `mail.<domain>`, `<domain>`, and the collaboration hostnames if you turn those on.
 
 Run from the repo root:
 
 ```bash
-bash infra/bootstrap.sh
+kubectl apply -f infra/clusterissuers-http01.yaml
 ```
 
 Verify:
@@ -64,6 +63,8 @@ Verify:
 kubectl get clusterissuer
 # Both le-staging and le-prod should show READY=True
 ```
+
+The issuers send challenges through Traefik, the ingress controller k3s ships with. On a cluster with another ingress controller, change `ingressClassName` in that file.
 
 ---
 
@@ -85,13 +86,13 @@ global:
 ```
 
 With `domains` left empty, certificates are minted for:
-- `mail.yourdomain.com` (+ `*.mail.yourdomain.com`) — the Secret postfix mounts
-- `yourdomain.com` (+ `*.yourdomain.com`)
+- `mail.yourdomain.com`, the Secret postfix mounts
+- `yourdomain.com`
 
 ### Staging vs Production
 
 Always test with `le-staging` first. Staging issues real but **untrusted** certificates —
-browsers will show a warning, but the full DNS challenge and issuance flow is verified.
+browsers will show a warning, but the full challenge and issuance flow is verified.
 
 Once the staging certificate shows `READY=True`, switch to `le-prod`:
 
@@ -110,6 +111,13 @@ Burning through this with misconfigured charts is a common mistake — staging p
 From the repo root. `global.domain` is mandatory, and a first install also needs
 the ThunderID admin password and raven's two ThunderID secrets (see
 [ThunderID identity server](#thunderid-identity-server)).
+
+Fetch the ThunderID and Nextcloud charts first. They aren't in git, so a fresh
+clone fails with "missing in charts/ directory" without this:
+
+```bash
+helm dependency update ./charts/opengovmail
+```
 
 **First install.** This generates raven's secrets, so run it only once per
 namespace:
