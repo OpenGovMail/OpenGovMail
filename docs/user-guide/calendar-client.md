@@ -1,8 +1,10 @@
-# Calendar client setup
+# Set up a calendar app
 
-OpenGovMail calendars run in Nextcloud and are served over CalDAV, so any CalDAV client can use them. Contacts are served over CardDAV from the same server.
+## Overview
 
-In this guide, `cloud.yourdomain.com` stands for your Nextcloud host, the value of `nextcloud.nextcloud.host` in the Helm chart.
+OpenGovMail calendars run in Nextcloud and are served over CalDAV, so any CalDAV app can use them. Contacts are served over CardDAV from the same server. This guide connects Thunderbird, Outlook, iPhones, iPads and Android phones.
+
+In this guide, `cloud.yourdomain.com` stands for your organization's Nextcloud address. Your administrator can tell you what it is.
 
 ## Before you start: create an app password
 
@@ -72,3 +74,9 @@ These work the same in every client, but are easiest in Nextcloud Calendar on th
 
 - An outside attendee who replies from their own calendar app, instead of clicking `Accept` or `Decline`, sends the reply as email to the organizer's mailbox. Nextcloud does not read that mailbox, so the event does not update.
 - Only ThunderID user types listed in `nextcloudDeps.registerJob.allowedUserTypes` can sign in to Nextcloud. Invitations need an email address, so those users also need the `email` attribute set in ThunderID.
+
+## See also
+
+- [User guide](README.md)
+- [Set up a files app](files-client.md)
+- [Nextcloud Calendar user manual](https://docs.nextcloud.com/server/latest/user_manual/en/groupware/calendar.html)

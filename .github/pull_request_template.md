@@ -14,7 +14,7 @@
 ## ✅ Checklist (Email System)
 - [ ] Core services tested (SMTP, IMAP, mail storage, end-to-end delivery)
 - [ ] Security & compliance verified (auth via Thunder IDP, TLS, DKIM/SPF/DMARC, spam/virus filtering)
-- [ ] Configuration & deployment checked (configs generated, Docker/Compose updated)
+- [ ] Configuration & deployment checked (Helm chart renders, values and docs updated)
 - [ ] Reliability confirmed (error handling, logging, monitoring)
 - [ ] Documentation & usage notes updated (README, deployment, API)
 
