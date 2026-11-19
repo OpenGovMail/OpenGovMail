@@ -656,6 +656,9 @@ nextcloudDeps:
 # README's Calls section.
 tuwunel:
   enabled: false
+  # templates/certificate.yaml may issue the .well-known Secret; see the subchart's values.
+  wellKnown:
+    certificateFromParent: true
 
 # ThunderID registration for Tuwunel, rendered by templates/tuwunel-oidc.yaml.
 # Separate from the tuwunel block because that one is the subchart's scope.

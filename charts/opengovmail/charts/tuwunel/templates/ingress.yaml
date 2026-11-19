@@ -47,6 +47,19 @@ spec:
                   name: http
 {{- if .Values.wellKnown.enabled }}
 {{- $serverName := include "tuwunel.serverName" . }}
+{{- /* Under the opengovmail chart, its certificate.yaml may already issue this Secret.
+Asking cert-manager for it too makes a second Certificate that races the parent's. */}}
+{{- $g := .Values.global | default dict }}
+{{- if and .Values.wellKnown.certificateFromParent ($g.tls).enabled }}
+{{- $issued := list }}
+{{- range (($g.tls).domains | default (list ($g.mailHostname | default (printf "mail.%s" $g.domain)) $g.domain)) }}
+{{- $issued = append $issued (printf "%s-tls" (. | replace "." "-")) }}
+{{- end }}
+{{- if has (include "tuwunel.wellKnownTlsSecretName" .) $issued }}
+{{- $own := omit (.Values.ingress.annotations | default dict) "cert-manager.io/cluster-issuer" "cert-manager.io/issuer" "kubernetes.io/tls-acme" }}
+{{- $annotations = ternary "" (toYaml $own | trim) (empty $own) }}
+{{- end }}
+{{- end }}
 ---
 # Only /.well-known/matrix on the bare domain, so anything else hosted there is
 # left alone.
