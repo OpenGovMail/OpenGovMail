@@ -1,8 +1,10 @@
-# Files client setup
+# Set up a files app
+
+## Overview
 
 OpenGovMail files run in Nextcloud. You can use them in the browser, sync them to a computer, or open them on a phone.
 
-In this guide, `cloud.yourdomain.com` stands for your Nextcloud host, the value of `nextcloud.nextcloud.host` in the Helm chart.
+In this guide, `cloud.yourdomain.com` stands for your organization's Nextcloud address. Your administrator can tell you what it is.
 
 ## In the browser
 
@@ -33,14 +35,7 @@ Apps that only speak WebDAV need an app password. Create one under `Personal set
 https://cloud.yourdomain.com/remote.php/dav/files/<username>/
 ```
 
-## For administrators: creating a shared drive
+## See also
 
-```sh
-kubectl exec -n <namespace> deploy/<release>-nextcloud -c nextcloud -- \
-  su -s /bin/sh www-data -c "php occ groupfolders:create Finance"
-# The command prints the new drive's ID. Give a group access to it:
-kubectl exec -n <namespace> deploy/<release>-nextcloud -c nextcloud -- \
-  su -s /bin/sh www-data -c "php occ groupfolders:group <id> <group-id> read write share delete"
-```
-
-`php occ group:list` shows each ThunderID group's ID next to its name.
+- [User guide](README.md)
+- [Nextcloud Files user manual](https://docs.nextcloud.com/server/latest/user_manual/en/files/index.html)

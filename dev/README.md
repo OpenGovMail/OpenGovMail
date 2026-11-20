@@ -1,32 +1,4 @@
-# Development Guide
+# Development
 
-## Local Development Mode
-
-Build images locally to test your changes.
-
-### Step 1: Enable Local Build
-```bash
-cp dev/examples/docker-compose.override.yml services/docker-compose.override.yml
-```
-
-### Step 2: Create Environment File
-```bash
-cp services/.env.example services/.env
-nano services/.env
-```
-
-### Step 3: Build and Run
-```bash
-bash scripts/setup/setup.sh
-bash scripts/service/start-opengovmail.sh
-```
-
-### Step 4: Switch Back to Production
-```bash
-rm services/docker-compose.override.yml
-bash scripts/service/start-opengovmail.sh
-```
-
-## Files
-
-- `examples/docker-compose.override.yml` - Template for local builds
+- [Run your own build](../docs/how-to/run-local-build.md) checks a chart change and runs a changed image on a test server.
+- [CONTRIBUTING.md](../CONTRIBUTING.md) covers forking, branches, pull requests and releases.

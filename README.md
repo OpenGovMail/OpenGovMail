@@ -7,165 +7,104 @@
 [![Last Commit](https://img.shields.io/github/last-commit/OpenGovMail/OpenGovMail)](https://github.com/OpenGovMail/OpenGovMail/commits/main)
 [![Slack](https://img.shields.io/badge/Slack-join%20chat-4A154B?logo=slack&logoColor=white)](https://join.slack.com/t/lsflk/shared_invite/zt-4ddz9zqnn-8lnG12b9Ty1Pclnx_hdIwA)
 
-**OpenGovMail** aims to build a new kind of email and communication system that can work at a government scale. The goal is to make email faster, smarter, and easier to manage while keeping it secure and reliable. The platform will evolve in two stages: Version 1.0 delivers reliable, standards-compliant email, while Version 2.0 reimagines communication with modern collaboration at its core.
-
 <p align="center">
-  •   <a href="#why-OpenGovMail">Why OpenGovMail?</a> •
-  <a href="#key-features">Key Features</a> •
-  <a href="#getting-started">Getting Started</a> •
-  <a href="#open-source-components">Open Source Components</a> •
-  <a href="#contributing">Contributing</a> •
-  <a href="#license">License</a> •
+  <a href="#project-description">Description</a> •
+  <a href="#who-this-project-is-for">Who it's for</a> •
+  <a href="#key-features">Key features</a> •
+  <a href="#project-dependencies">Dependencies</a> •
+  <a href="#instructions-for-using-opengovmail">Using OpenGovMail</a> •
+  <a href="#contributing-guidelines">Contributing</a> •
+  <a href="#additional-documentation">Documentation</a> •
+  <a href="#how-to-get-help">Help</a> •
+  <a href="#terms-of-use">Terms of use</a>
 </p>
 
-## Why OpenGovMail?
-OpenGovMail is designed to be secure, reliable, and easy to manage. It runs entirely on your own hardware, giving you full control over your data and ensuring privacy. The system is lightweight and efficient, performing well even on minimal hardware, which makes it easy to deploy in a variety of environments. Each user has a single, unified identity, so an email address and user identity are seamlessly connected. You can bring your own identity provider or use Thunder to organize your users and map your organization hierarchically.
+## Project description
 
-External firewalls are not required to filter emails, and attachments are stored separately in blob storage to save space and improve overall system performance. OpenGovMail also includes built-in observability, allowing administrators to monitor activity, detect issues early, and maintain smooth operation.
+OpenGovMail is an email and communication system built to work at government scale. It aims to make email faster, smarter and easier to manage while keeping it secure and reliable. The platform grows in two stages: version 1.0 delivers reliable, standards-compliant email, and version 2.0 adds collaboration around it: calendars, shared drives, document editing, meetings and chat.
 
-## Key Features
+OpenGovMail runs on your own Kubernetes cluster from one Helm chart, so mail, files and accounts stay on your servers. Each user has one identity, and their email address and their account are the same thing. You can bring your own ThunderID or use the bundled one to organize your users and map your organization's hierarchy.
 
-OpenGovMail offers powerful capabilities that set it apart from traditional email solutions:
+[Overview of the architecture](docs/concepts/architecture.md) shows how the parts fit together.
+
+## Who this project is for
+
+- Governments, public bodies and other organizations that want to run their own email instead of renting it.
+- System administrators who install and run it. You should be comfortable with Linux, DNS and basic Kubernetes.
+- Developers who want to change or extend it. Start with [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Key features
 
 | Feature | Status |
 |---------|--------|
-| **Unmatched Cost Efficiency** – Reduce enterprise email costs to near-zero infrastructure expense. | Completed |
-| **Lightweight Infrastructure** – Run on minimal hardware without compromising performance | Completed |
-| **Complete Data Ownership** – Full control over storage, access, and security | Completed |
-| **Built-In Security Protection** – Enterprise-grade spam filtering and malware scanning | Completed |
-| **Smart Attachment Storage** – Separate object storage for improved performance | Completed |
-| **Effortless Group Emailing** – Organize users into groups for simplified communication | Completed |
-| **Professional Role-Based Identity** – Authoritative organizational email addresses | Completed |
-| **Identity Provider Integration** – Seamless integration with existing IdP systems | In Progress |
-| **Disaster-Proof Backups** – Configurable backup strategies for data protection | Planned |
-| **Email Workflow Automation** – Route emails through predefined workflows with tracking | Planned |
-| **High-Performance Email Client** – Native IMAP and JMAP support for faster sync | Planned |
-| **Email Expiration Control** – Set expiration dates and retention policies | Planned |
+| No licence fees. You pay only for the servers it runs on. | Completed |
+| Runs on modest hardware: 4 GB of memory for email. | Completed |
+| Mail, attachments and accounts stay on your own servers. | Completed |
+| Attachments are kept in object storage, apart from the mailboxes. | Completed |
+| Group addresses deliver to every member of a group. | Completed |
+| Role addresses, such as `director@`, belong to the organization rather than a person. | Completed |
+| Accounts come from ThunderID, either the bundled one or one you already run. | Completed |
+| Spam filtering with Rspamd, turned on in the Helm values. | Completed |
+| Calendars, shared drives, document editing, video meetings and chat, each turned on separately. | Completed |
+| Malware scanning. | Planned |
+| Configurable backups. | Planned |
+| Email workflows that route a message through set steps, with tracking. | Planned |
+| A native email client with IMAP and JMAP support. | Planned |
+| Expiry dates and retention policies for email. | Planned |
 
 **[View Complete Feature List →](docs/FEATURE_LIST.md)**
 
-## Getting Started
-### Prerequisites
-- A dedicated Linux server with a static public IP address. You also require root access and port access control.
-- Domain with DNS control
+## Project dependencies
 
-### Minimum hardware requirements
-- 4GB of memory
+To run OpenGovMail you need:
 
-### Software 
-- Ensure you have [Git](https://git-scm.com/downloads/linux) and [Docker Engine](https://docs.docker.com/engine/install/) installed
-  
-### DNS setup
-You own <a>example.com</a> and want to send an email as person@example.com.
+- A Linux server on amd64 (x86_64) with a static public IP address and root access. The published images are built for amd64 only.
+- At least 4 GB of memory, and 2 CPUs if you turn on collaboration.
+- A domain whose DNS you control, and a PTR record for the server's IP address.
+- A Kubernetes cluster. A single-node [k3s](https://k3s.io/) is the tested setup.
+- [Helm](https://helm.sh/docs/intro/install/), [kubectl](https://kubernetes.io/docs/tasks/tools/) and [Git](https://git-scm.com/downloads/linux).
 
-You will need to add a few records to your DNS control panel.
+[Technology stack](docs/reference/technology-stack.md) lists every component and its version.
 
-> [!Note]
-> Replace example.com and 12.34.56.78 in the below example with your domain and ip address.
+## Instructions for using OpenGovMail
 
-| DNS Record | Name        | Value                                                  |
-| ---------- | ----------- | ------------------------------------------------------ |
-| A          | mail        | 12.34.56.78                                            |
-| A          | example.com | 12.34.56.78                                            |
-| MX         | example.com | mail.example.com                                       |
-| TXT        | example.com | "v=spf1 ip4:12.34.56.78 ~all"                          |
-| TXT        | _dmarc      | "v=DMARC1; p=quarantine; rua=mailto:dmarc@example.com" |
-| PTR        | 12.34.56.78 | mail.example.com                                       |
+### Install
 
-> [!Tip]
-> PTR records are usually set through your hosting provider. 
+- [Quickstart](docs/quickstart.md): from a fresh server to your first sent email.
+- [Installation guide](docs/installation-guide.md): every step and option, including upgrades and removal.
 
-### Server Setup
--  Use the below command to clone the OpenGovMail Repo and navigate to the OpenGovMail folder.
+### Configure
 
-```bash
-git clone https://github.com/OpenGovMail/OpenGovMail.git
-cd OpenGovMail
-```
+- [Helm values](docs/reference/helm-values.md): the settings you are most likely to change.
+- [Add users](docs/how-to/add-users.md) in the ThunderID console.
+- [Turn on collaboration](docs/how-to/enable-collaboration.md): Nextcloud, Collabora, Talk and Matrix.
 
-### Configuration
-- Open [`opengovmail.yaml`](https://github.com/OpenGovMail/OpenGovMail/blob/main/conf/opengovmail.yaml) with a text editor.
+### Run
 
-- Enter your domain name.
+- [Upgrade OpenGovMail](docs/how-to/upgrade.md) to a new release.
+- [User guide](docs/user-guide/README.md): connect mail, calendar and file apps.
 
-- Create your own environment file from the template and fill in the values before running setup:
+### Troubleshoot
 
-```bash
-cp services/.env.example services/.env
-nano services/.env
-```
+[Troubleshooting](docs/troubleshooting.md) covers certificates that aren't issued, DKIM failures, mail marked as spam and pods that don't start.
 
-- Follow the manual setup instructions in the [SeaweedFS README](https://github.com/OpenGovMail/OpenGovMail/blob/main/services/seaweedfs/README.md) to create the `.env` and `s3-config.json` files.
+## Contributing guidelines
 
-- Run `bash scripts/setup/setup.sh` to set up the configs.
+Contributions of any size are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) explains how to set up a development environment, keep a fork up to date and open a pull request. Everyone taking part follows the [code of conduct](CODE_OF_CONDUCT.md).
 
-- Run `bash scripts/service/start-opengovmail.sh` to start the mail server.
+To report a security problem, follow [SECURITY.md](SECURITY.md) instead of opening an issue.
 
-- Replace the dkim record below with the output you get after running the `start-opengovmail.sh` script
+## Additional documentation
 
-| DNS Record | Name            | Value                                                                                                                                                                                                                                                  |
-| ---------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| TXT        | mail._domainkey | "v=DKIM1; h=sha256; k=rsa; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDYZd3CAas0+81zf13cvtO6o0+rlGx8ZobYQXRR9W8qcJOeO1SiQGx8F4/DjZE1ggujOaY1bkt8OnUg7vG7/bk5PNe05EHJrg344krodqCJrVI74ZzEB77Z1As395KX6/XqbQxBepQ8D5+RpGFOHitI443G/ZWgZ6BRyaaE6t3u0QIDAQAB" |
+- [Documentation index](docs/README.md)
+- [Release notes](CHANGELOG.md), one entry per version, following [Semantic Versioning](https://semver.org/)
+- [Glossary](docs/glossary.md)
 
-> [!Important] 
-> Ensure that your dkim value is correctly formatted.
+## How to get help
 
-### Adding users
+- Ask in the [OpenGovMail Slack](https://join.slack.com/t/lsflk/shared_invite/zt-4ddz9zqnn-8lnG12b9Ty1Pclnx_hdIwA).
+- Open a [GitHub issue](https://github.com/OpenGovMail/OpenGovMail/issues) for a bug or a feature request.
 
-Users in OpenGovMail are provisioned through the [Thunder ID](https://github.com/thunder-id/thunderid) console that ships with the platform. Sign in to the console at `https://<your-domain>:8090/console` with your admin credentials.
-- To add more users to your email server, open up [`users.yaml`](https://github.com/OpenGovMail/OpenGovMail/blob/main/conf/users.yaml), and add their usernames and run the following command.
+## Terms of use
 
-For the full walkthrough — creating a user schema, assigning it to an organization unit, and adding users via direct password or invitation link — see [Adding Users](docs/Adding-Users.md).
-
-### Testing your setup
-- Now that you have a working email server, you can test your configuration using the following links/scripts.
-
-  - [mxtoolbox](https://mxtoolbox.com/SuperTool.aspx)
-    - MxToolbox is a powerful online service that provides a suite of free diagnostic and lookup tools for troubleshooting email delivery, DNS, and network issues.
-  - [mail-tester](https://www.mail-tester.com/)
-    - Mail-Tester is a free online tool that analyzes the "spamminess" of your email and server configuration, providing a score out of 10 to help improve your email deliverability.
-  
-
-- You can also set up a Mail User Agent (MUA) like Thunderbird to send and receive emails. Follow the instructions in [Mail User Agent Setup](docs/Mail-User-Agent-Setup.md).
-- To use the shared calendars from Thunderbird, Outlook, a phone or a tablet, follow [Calendar Client Setup](docs/Calendar-Client-Setup.md).
-- To sync shared drives to a computer or phone, follow [Files Client Setup](docs/Files-Client-Setup.md).
-
-## Open Source Components
-
-### Email Flow in OpenGovMail
-
-<table>
-<tr>
-<td width="50%">
-
-**Figure 1: Outbound Email Flow**
-
-<img src="https://github.com/user-attachments/assets/17938298-8f0c-4558-9331-6e96272cb0ba" alt="Inbound Email Flow" width="100%" />
-
-</td>
-<td width="50%">
-
-**Figure 2: Inbound Email Flow**
-
-<img src="https://github.com/user-attachments/assets/58e81d33-6a26-4bff-92fb-663737446740" alt="Outbound Email Flow" width="100%" />
-
-</td>
-</tr>
-</table>
-
-OpenGovMail is built using open-source software.
-
-- [Postfix](https://www.postfix.org/) - Handles sending and receiving email.
-- [Raven](https://github.com/lsflk/raven) - Handles SASL authentication, LMTP, and IMAP server for email retrieval.
-- [Thunder ID](https://github.com/thunder-id/thunderid) - Identity provider and user manager
-- [Rspamd](https://rspamd.com/) - Spam filtering system.
-- [ClamAV](https://docs.clamav.net/Introduction.html) - Virus scanning system.
-- [Certbot](https://certbot.eff.org/) - Client software that talks to Let’s Encrypt to generate certificates.
-
-## Contributing
-
-Thank you for wanting to contribute to our project. Please see [CONTRIBUTING.md](https://github.com/OpenGovMail/OpenGovMail/blob/main/docs/CONTRIBUTING.md) for more details.
-
-## License 
-
-Distributed under the Apache 2.0 License. See [LICENSE](https://github.com/OpenGovMail/OpenGovMail/blob/main/LICENSE) for more information.
+OpenGovMail is distributed under the Apache 2.0 License. See [LICENSE](LICENSE).
