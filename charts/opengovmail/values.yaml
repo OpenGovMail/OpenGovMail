@@ -101,6 +101,23 @@ opendkim:
 postfix:
   enabled: true
 
+autodiscover:
+  enabled: true
+  # Empty derives global.domain. The first entry is primary and determines the
+  # default mail.<domain> hostname.
+  domains: []
+  ingress:
+    enabled: true
+    className: traefik
+    annotations:
+      traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    # Empty serves [<global.domain>, mail.<global.domain>] and reuses the
+    # cert-manager Secrets certificate.yaml creates for those hosts.
+    hosts: []
+    tls:
+      enabled: true
+      secretNames: []
+
 redis:
   enabled: false
 

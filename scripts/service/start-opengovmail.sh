@@ -130,6 +130,12 @@ chmod +x "${SCRIPT_DIR}/../utils/get-dkim.sh"
 (cd "${SCRIPT_DIR}/../utils" && ./get-dkim.sh)
 
 # ================================
+# Autodiscovery DNS Instructions
+# ================================
+chmod +x "${SCRIPT_DIR}/../utils/print-autodiscovery-dns.sh"
+(cd "${SCRIPT_DIR}/../utils" && ./print-autodiscovery-dns.sh)
+
+# ================================
 # Generate RSPAMD worker-controller.inc
 # ================================
 

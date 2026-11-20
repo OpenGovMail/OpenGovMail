@@ -1,0 +1,39 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "autodiscover.fullname" . }}
+  labels:
+    {{- include "autodiscover.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  rules:
+{{- range include "autodiscover.ingressHosts" . | fromJsonArray }}
+    - host: {{ . | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "autodiscover.fullname" $ }}
+                port:
+                  number: {{ $.Values.service.port }}
+{{- end }}
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+{{- $hosts := include "autodiscover.ingressHosts" . | fromJsonArray }}
+{{- $secretNames := .Values.ingress.tls.secretNames | default list }}
+{{- range $i, $host := $hosts }}
+    - hosts:
+        - {{ $host | quote }}
+      secretName: {{ if lt $i (len $secretNames) }}{{ index $secretNames $i | quote }}{{ else }}{{ include "autodiscover.tlsSecretName" (dict "host" $host) | quote }}{{ end }}
+{{- end }}
+  {{- end }}
+{{- end }}
