@@ -1,27 +1,27 @@
 # Identity and users
 
-All OpenGovMail accounts are in [ThunderID](https://github.com/thunder-id/thunderid). ThunderID is an identity server. The account of a user and the email address of the user are the same. Users sign in to mail, calendars, files and chat with one name and one password. An administrator manages all the accounts in one location, the ThunderID console.
+Every OpenGovMail account lives in [ThunderID](https://github.com/thunder-id/thunderid), an identity server. A user's account and their email address are the same thing: they sign in to mail, calendars, files and chat with one name and password, and an administrator manages them all in one place, the ThunderID console.
 
 ## Background
 
-ThunderID uses three items to organize accounts:
+ThunderID organizes accounts with three ideas:
 
-- An organization unit is a part of your organization, for example a department. Each user is in one organization unit.
-- A user type gives the attributes of a type of user, for example a username, a display name and an email address. Some screens call it a user schema.
-- A group is a set of users. The users in a group can be in different organization units.
+- An organization unit is a part of your organization, such as a department. Every user belongs to one.
+- A user type, sometimes called a user schema, lists the attributes a kind of user has, such as a username, a display name and an email address.
+- A group is a set of users. Groups cut across organization units.
 
-The chart installs ThunderID with a `default` organization unit, a `Person` user type, an `Administrator` role and the console application. It also registers Raven as an application. Thus, Raven can read the organization units, users and groups. You do not create these items yourself.
+The chart installs ThunderID with a `default` organization unit, a `Person` user type, an `Administrator` role and the console application. It also registers Raven as an application, so Raven can read organization units, users and groups. You don't create any of this by hand.
 
-## How users connect to mail
+## How users map to mail
 
-Raven gets the data for mail delivery from ThunderID:
+Raven decides which mail belongs to whom by asking ThunderID:
 
-- Each organization unit has one or more mail domains. The `default` organization unit has `global.domain`. Only one organization unit can have a given domain.
-- A user receives mail at the domains of the organization unit of the user. The user signs in to mail apps with the full email address.
-- An organization unit without a domain cannot receive mail. Its users cannot sign in to mail.
-- A message to a group address goes to all the members of the group.
+- Each organization unit owns one or more mail domains. The `default` organization unit owns `global.domain`. A domain belongs to one organization unit only.
+- A user in an organization unit receives mail at that unit's domains, and signs in to mail clients with their full email address.
+- An organization unit that owns no domain can't receive mail, and its users can't sign in to mail.
+- A message to a group address goes to every member of the group.
 
-To give domains to other organization units, set `raven.organizationUnitDomains`. Use the ID of the organization unit as the key:
+To give other organization units their own domains, set `raven.organizationUnitDomains`, keyed by the unit's ID:
 
 ```yaml
 raven:
@@ -31,26 +31,21 @@ raven:
 
 ## Collaboration sign-in
 
-Nextcloud and Matrix register in ThunderID at each installation and upgrade. They send users to ThunderID to sign in. Only the user types in their lists can sign in. The default list has only `Person`. Nextcloud gets its groups from ThunderID, and updates them at each sign-in. [Add the collaboration services](../how-to/enable-collaboration.md#user-types) tells you how to add other user types.
+Nextcloud and Matrix register themselves in ThunderID on every install and upgrade, and send users to ThunderID to sign in. Only the user types they list can sign in: `Person` by default. Groups in Nextcloud come from ThunderID and update at each sign-in. [Add the collaboration services](../how-to/enable-collaboration.md#user-types) explains how to allow other user types.
 
 ## Use cases
 
-- An organization with one domain uses the default values. All users go in the `default` organization unit.
-- A ministry has some departments, and each department has its own domain. The ministry creates one organization unit for each department. It puts the domain of each department in `raven.organizationUnitDomains`.
-- An organization that has a ThunderID already sets `global.thunder.url` to it, and sets `thunderid.enabled` to `false`. It must then do these steps:
-  - Set `raven.organizationUnitDomains`.
-  - Create the application and the permissions for Raven in its ThunderID.
-  - Set `raven.thunder.resourceIdentifier` to the identifier of the System resource server in its ThunderID, for example `https://thunder.example.com/mcp`.
+- A single organization with one domain uses the defaults. Every user goes in the `default` organization unit.
+- A ministry with several departments, each with its own domain, creates an organization unit per department and lists each one's domain in `raven.organizationUnitDomains`.
+- An organization that already runs ThunderID sets `global.thunder.url` to it and `thunderid.enabled` to `false`. It must then set `raven.organizationUnitDomains`, create Raven's application and permissions in its ThunderID, and set `raven.thunder.resourceIdentifier` to the identifier its ThunderID registered for the System resource server, such as `https://thunder.example.com/mcp`. The default, `https://localhost:8090/mcp`, only matches the bundled ThunderID. With the wrong value, ThunderID refuses Raven's token request with `invalid_target` and users can't sign in to mail.
 
-  The default identifier, `https://localhost:8090/mcp`, is correct only for the ThunderID that comes with the chart. If the identifier is not correct, ThunderID refuses the token request from Raven with `invalid_target`. Then users cannot sign in to mail.
+## Comparison with a traditional mail server
 
-## Comparison with a usual mail server
-
-| | Usual mail server | OpenGovMail |
+| | Traditional mail server | OpenGovMail |
 |---|---|---|
-| Location of the accounts | A list or a database for mail only | ThunderID, for all the services |
-| Mail address | Separate from the login | The same as the account |
-| Add a person to a team | Change the mailing lists manually | Add the person to a ThunderID group |
+| Where accounts live | A mail-only user list or database | ThunderID, shared by every service |
+| Mail address | Configured separately from the login | The user's account |
+| Adding a person to a team | Edit mailing lists by hand | Add them to a ThunderID group |
 
 ## Related resources
 
