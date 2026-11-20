@@ -16,7 +16,7 @@
 | Mail exchanger record | MX | The DNS record that tells other servers where to deliver mail for your domain. |
 | Matrix | | An open chat protocol. Tuwunel is OpenGovMail's Matrix server, and Element a Matrix app. |
 | Organization unit | OU | A part of your organization in ThunderID, such as a department. Each one owns one or more mail domains. |
-| Pointer record | PTR | Reverse DNS: maps the server's IP address back to `mail.<domain>`. Other servers check it before accepting mail. |
+| Pointer record | PTR | Reverse DNS: maps the server's IP address back to `mail.<domain>`. Other servers examine it before they accept mail. |
 | Raven | | OpenGovMail's mail store. It serves IMAP, takes delivery over LMTP and checks passwords for Postfix. |
 | Simple Authentication and Security Layer | SASL | How Postfix checks a mail app's password before it accepts mail to send. Raven answers the check. |
 | Simple Mail Transfer Protocol | SMTP | The protocol for sending mail between servers (port 25) and from mail apps (port 587). |

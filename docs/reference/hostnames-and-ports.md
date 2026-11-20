@@ -1,10 +1,10 @@
 # Hostnames and ports
 
-This page lists the hostnames OpenGovMail needs in DNS and the ports it needs open on the server's firewall. `example.com` stands for `global.domain`.
+This page gives the hostnames that OpenGovMail must have in DNS. It also gives the ports that must be open on the firewall of the server. `example.com` is the value of `global.domain`.
 
 ## Hostnames
 
-Point each hostname at the server with an A record. cert-manager gets a certificate for each.
+Point each hostname to the server with an A record. cert-manager gets a certificate for each hostname.
 
 | Hostname | Set with | Serves | Needed for |
 |---|---|---|---|
@@ -17,7 +17,7 @@ Point each hostname at the server with an A record. cert-manager gets a certific
 
 ## Ports
 
-Open these inbound on the node's firewall.
+Open these inbound ports on the firewall of the node.
 
 | Port | Service | Needed for |
 |---|---|---|
@@ -33,4 +33,4 @@ Open these inbound on the node's firewall.
 | 7882/udp | LiveKit: Matrix call media | Matrix calls |
 | 7881/tcp | LiveKit: Matrix call media on networks that block UDP | Matrix calls |
 
-Postfix, Raven, coturn and LiveKit bind their ports directly on the node. If the node only has a private IP address, set `nextcloudDeps.turn.externalIP` and `tuwunel.matrixRtc.livekit.nodeIP` to its public address.
+Postfix, Raven, coturn and LiveKit use their ports directly on the node. If the node has only a private IP address, set `nextcloudDeps.turn.externalIP` and `tuwunel.matrixRtc.livekit.nodeIP` to its public address.

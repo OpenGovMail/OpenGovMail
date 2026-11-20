@@ -1,21 +1,24 @@
-# Set up a calendar app
+# Connect a calendar app
 
 ## Overview
 
-OpenGovMail calendars run in Nextcloud and are served over CalDAV, so any CalDAV app can use them. Contacts are served over CardDAV from the same server. This guide connects Thunderbird, Outlook, iPhones, iPads and Android phones.
+OpenGovMail calendars are in Nextcloud. Nextcloud supplies them through CalDAV. Thus, all CalDAV apps can use them. Nextcloud also supplies contacts through CardDAV. This procedure connects Thunderbird, Outlook, iPhones, iPads and Android phones.
 
-In this guide, `cloud.yourdomain.com` stands for your organization's Nextcloud address. Your administrator can tell you what it is.
+In this procedure, `cloud.yourdomain.com` is the Nextcloud address of your organization. Your administrator can give you this address.
 
 ## Before you start: create an app password
 
-You sign in to Nextcloud through ThunderID, so you have no Nextcloud password to give a calendar app. Create an app password for each device instead.
+You sign in to Nextcloud through ThunderID. Thus, you do not have a Nextcloud password for a calendar app. Create an app password for each device.
 
 1. Sign in at `https://cloud.yourdomain.com`.
-2. Open your avatar menu and choose `Personal settings`, then `Security`.
-3. Under `Devices & sessions`, type a name such as "Phone calendar" and click `Create new app password`.
-4. Copy both the username and the password it shows. The password is shown only once.
+2. Open your avatar menu. Select `Personal settings`, then `Security`.
+3. Below `Devices & sessions`, type a name, for example "Phone calendar".
+4. Click `Create new app password`.
+5. Copy the username and the password. Nextcloud shows the password only one time.
 
-The username is a long string of letters and digits, not your email address. Calendar apps reject your email address here. To revoke a device later, delete its entry under `Devices & sessions`.
+The username is a long string of letters and digits. It is not your email address. Calendar apps do not accept your email address here.
+
+To remove the access of a device, delete its entry below `Devices & sessions`.
 
 ## Server settings
 
@@ -23,60 +26,78 @@ The username is a long string of letters and digits, not your email address. Cal
 |---|---|
 | Server | `https://cloud.yourdomain.com` |
 | CalDAV and CardDAV URL, if the app asks for a full path | `https://cloud.yourdomain.com/remote.php/dav/` |
-| Username | the username from the app password screen |
-| Password | the app password |
+| Username | The username from the app password screen |
+| Password | The app password |
 
-Most apps only need the server address. They find the rest through `https://cloud.yourdomain.com/.well-known/caldav`.
+Most apps use only the server address. They find the other settings through `https://cloud.yourdomain.com/.well-known/caldav`.
 
 ## Thunderbird
 
-Thunderbird 102 and later support CalDAV and CardDAV without add-ons.
+Thunderbird 102 and later versions have CalDAV and CardDAV. You do not have to add add-ons.
 
-1. Open the calendar, then click `New Calendar`.
-2. Choose `On the Network` and click `Next`.
-3. Enter the username, and `https://cloud.yourdomain.com` as the location. Click `Find Calendars`.
-4. Enter the app password when asked, select the calendars to add, and click `Subscribe`.
+1. Open the calendar. Click `New Calendar`.
+2. Select `On the Network`. Click `Next`.
+3. Enter the username. Enter `https://cloud.yourdomain.com` as the location.
+4. Click `Find Calendars`.
+5. When Thunderbird asks for the password, enter the app password.
+6. Select the calendars to add. Click `Subscribe`.
 
-For contacts, open the address book, choose `New Address Book` and then `Add CardDAV Address Book`, and use the same username and location.
+To add contacts, do these steps:
+
+1. Open the address book.
+2. Select `New Address Book`, then `Add CardDAV Address Book`.
+3. Enter the same username and location.
 
 ## Outlook
 
-Outlook has no built-in CalDAV support. On Windows, install the open source [Outlook CalDav Synchronizer](https://caldavsynchronizer.org/) add-in. Create a profile of type `Nextcloud`, enter `https://cloud.yourdomain.com/remote.php/dav/` as the DAV URL, then the username and app password. Click `Test or discover settings` and pick the calendar.
+Outlook does not have CalDAV. On Windows, use the open source [Outlook CalDav Synchronizer](https://caldavsynchronizer.org/) add-in.
+
+1. Install Outlook CalDav Synchronizer.
+2. Create a profile with the type `Nextcloud`.
+3. Enter `https://cloud.yourdomain.com/remote.php/dav/` as the DAV URL.
+4. Enter the username and the app password.
+5. Click `Test or discover settings`.
+6. Select the calendar.
 
 ## iPhone and iPad
 
-1. Open `Settings`, then `Calendar`, then `Accounts`, and tap `Add Account`. On iOS 18 and later, `Calendar` is under `Apps`.
-2. Tap `Other`, then `Add CalDAV Account`.
-3. Enter `cloud.yourdomain.com` as the server, then the username and app password. Tap `Next`.
+1. Open `Settings`, then `Calendar`, then `Accounts`. On iOS 18 and later versions, `Calendar` is in `Apps`.
+2. Tap `Add Account`.
+3. Tap `Other`, then `Add CalDAV Account`.
+4. Enter `cloud.yourdomain.com` as the server.
+5. Enter the username and the app password. Tap `Next`.
 
-For contacts, go back to `Add Account`, choose `Other`, then `Add CardDAV Account`, and enter the same details.
+To add contacts, return to `Add Account`. Select `Other`, then `Add CardDAV Account`. Enter the same data.
 
 ## Android
 
-Android needs a sync app. [DAVx5](https://www.davx5.com/) is open source.
+Android must have a sync app. [DAVx5](https://www.davx5.com/) is an open source sync app.
 
 1. In DAVx5, tap the `+` button.
-2. Choose `Login with URL and user name`.
-3. Enter `https://cloud.yourdomain.com` as the base URL, then the username and app password.
-4. Tap `Login`, then choose which calendars and address books to sync.
+2. Select `Login with URL and user name`.
+3. Enter `https://cloud.yourdomain.com` as the base URL.
+4. Enter the username and the app password.
+5. Tap `Login`.
+6. Select the calendars and address books to sync.
 
-DAVx5 also offers a Nextcloud login option. It opens a browser where you sign in through ThunderID, then creates the app password for you.
+DAVx5 also has a Nextcloud login option. This option opens a browser. You sign in through ThunderID, and DAVx5 then creates the app password for you.
 
-## Sharing, availability and invitations
+## Share calendars, find free times and send invitations
 
-These work the same in every client, but are easiest in Nextcloud Calendar on the web.
+These functions are the same in all apps. Nextcloud Calendar on the web makes them easiest.
 
-- To share a calendar, open its menu, choose `Share`, and type a person's or group's name. Groups come from ThunderID, and membership changes there apply at each person's next sign-in. Group memberships added in Nextcloud itself are removed at that point.
-- When you add attendees to an event, `Find a time` shows when they are busy. It shows busy periods only, not event titles or details.
-- Attendees get an email invitation. People outside your organisation get `Accept` and `Decline` links that update your event when clicked, without an account.
+- To share a calendar, open its menu and select `Share`. Then type the name of a person or a group.
+- The groups come from ThunderID. A change to a group in ThunderID applies when the person signs in again. At that time, Nextcloud removes group memberships that you added in Nextcloud.
+- When you add attendees to an event, `Find a time` shows when they are busy. It shows only the busy periods. It does not show the titles or the details of events.
+- Attendees get an email invitation. People outside your organization get `Accept` and `Decline` links. When they click a link, your event changes. They do not have to have an account.
 
 ## Known limits
 
-- An outside attendee who replies from their own calendar app, instead of clicking `Accept` or `Decline`, sends the reply as email to the organizer's mailbox. Nextcloud does not read that mailbox, so the event does not update.
-- Only ThunderID user types listed in `nextcloudDeps.registerJob.allowedUserTypes` can sign in to Nextcloud. Invitations need an email address, so those users also need the `email` attribute set in ThunderID.
+- An outside attendee can reply from their own calendar app, not with `Accept` or `Decline`. Then the reply goes as an email to the mailbox of the organizer. Nextcloud does not read that mailbox. Thus, the event does not change.
+- Only the ThunderID user types in `nextcloudDeps.registerJob.allowedUserTypes` can sign in to Nextcloud. Invitations must have an email address. Thus, these users must also have a value in the `email` attribute in ThunderID.
 
 ## See also
 
 - [User guide](README.md)
-- [Set up a files app](files-client.md)
+- [Connect a files app](files-client.md)
 - [Nextcloud Calendar user manual](https://docs.nextcloud.com/server/latest/user_manual/en/groupware/calendar.html)
