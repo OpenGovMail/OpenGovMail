@@ -1,15 +1,15 @@
 # Technology stack
 
-This page lists every component the OpenGovMail Helm chart installs, with the version chart 0.6.1 ships, and the platform it runs on. [Overview of the architecture](../concepts/architecture.md) explains how the components connect. [CHANGELOG.md](../../CHANGELOG.md) lists what changed in each release.
+This page gives each component that the OpenGovMail Helm chart installs, and the platform for the chart. The versions are the versions in chart 0.6.1. The [overview of the architecture](../concepts/architecture.md) shows how the components connect. [CHANGELOG.md](../../CHANGELOG.md) gives the changes in each release.
 
 ## Platform
 
 | Requirement | Version | Notes |
 |---|---|---|
-| CPU architecture | amd64 (x86_64) | The Postfix, OpenDKIM and Raven images are built for amd64 only. |
-| Kubernetes | k3s, current stable release | The tested setup is a single node. Other clusters need an ingress controller and hairpin NAT; see [Other clusters](../installation-guide.md#other-clusters). |
-| Ingress controller | Traefik, as shipped with k3s | Set in `infra/clusterissuers-http01.yaml` and the Nextcloud ingress values. |
-| Helm | 3 | 3.17 or later for `--take-ownership`, used in one [troubleshooting](../troubleshooting.md#thunderid-setup-job-never-finishes-on-a-first-install) fix. |
+| CPU architecture | amd64 (x86_64) | The Postfix, OpenDKIM and Raven images are for amd64 only. |
+| Kubernetes | k3s, current stable release | We test with one node. Other clusters must have an ingress controller and hairpin NAT. Read [Other clusters](../installation-guide.md#other-clusters). |
+| Ingress controller | Traefik, from k3s | Set in `infra/clusterissuers-http01.yaml` and the Nextcloud ingress values. |
+| Helm | 3 | 3.17 or later for `--take-ownership`. One [troubleshooting](../troubleshooting.md#the-thunderid-setup-job-does-not-complete-on-a-first-installation) procedure uses it. |
 | cert-manager | 1.20.0 | Installed once per cluster. |
 
 ## Email and identity
@@ -29,7 +29,7 @@ These are on by default unless the table says otherwise.
 
 ## Collaboration
 
-All off by default. See [Turn on collaboration](../how-to/enable-collaboration.md).
+By default, all these components are off. Read [Add the collaboration services](../how-to/enable-collaboration.md).
 
 | Component | Version | Role |
 |---|---|---|

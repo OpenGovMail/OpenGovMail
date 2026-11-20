@@ -2,17 +2,17 @@
 
 ## Overview
 
-This guide moves an OpenGovMail install to a new chart version, or applies a change to your values file. Both use `helm upgrade`.
+This procedure changes an OpenGovMail installation to a new chart version. Use the same procedure to apply a change in your values file. The two use `helm upgrade`.
 
 ## Before you start
 
-- Read the entries in [CHANGELOG.md](../../CHANGELOG.md) between your version and the new one. A release with breaking changes lists the steps it needs.
-- Have your values file and the ThunderID admin password at hand.
-- Back up Raven's volume, which holds every mailbox, before a major version upgrade.
+- Read the entries in [CHANGELOG.md](../../CHANGELOG.md) between your version and the new version. If a release has breaking changes, its entry gives the necessary steps.
+- Get your values file and the password of the ThunderID administrator.
+- Before an upgrade to a new major version, back up the Raven volume. This volume has all the mailboxes.
 
 ## Upgrade
 
-1. Get the new chart version:
+1. Get the new chart version. Replace `<version>` with the version number:
 
    ```bash
    cd OpenGovMail
@@ -21,14 +21,14 @@ This guide moves an OpenGovMail install to a new chart version, or applies a cha
    helm dependency update ./charts/opengovmail
    ```
 
-2. Read back ThunderID's copy of the direct auth secret from the cluster:
+2. Get the ThunderID copy of the direct auth secret from the cluster:
 
    ```bash
    DIRECT_AUTH_SECRET=$(kubectl get secret opengovmail-raven-idp -n opengovmail \
      -o jsonpath='{.data.directAuthSecret}' | base64 -d)
    ```
 
-3. Run the upgrade:
+3. Do the upgrade:
 
    ```bash
    helm upgrade opengovmail ./charts/opengovmail \
@@ -38,26 +38,26 @@ This guide moves an OpenGovMail install to a new chart version, or applies a cha
      --namespace opengovmail
    ```
 
-   Leave out `global.ravenIdp.clientSecret` and `global.ravenIdp.directAuthSecret`. Raven's Secret keeps the values already in the cluster, and a different client secret fails the upgrade.
+   Do not give `global.ravenIdp.clientSecret` or `global.ravenIdp.directAuthSecret`. The Raven Secret keeps the values that are in the cluster. If you give a different client secret, the upgrade stops.
 
-4. Check that the pods come back:
+4. Make sure that the pods show `Running` or `Completed`:
 
    ```bash
    kubectl get pods -n opengovmail
    ```
 
-To keep from retyping the secrets, put them in a second values file that you never commit, and pass it with another `-f`.
+You can put the secrets in a second values file. Then you do not type them again. Do not commit this file. Give it to Helm with a second `-f` option.
 
 ## Roll back
 
-If the new version misbehaves, go back to the previous revision:
+If the new version does not operate correctly, return to the previous revision:
 
 ```bash
 helm history opengovmail -n opengovmail
 helm rollback opengovmail <revision> -n opengovmail
 ```
 
-A rollback restores Kubernetes resources, not data.
+A rollback restores the Kubernetes resources. It does not restore data.
 
 ## See also
 

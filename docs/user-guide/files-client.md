@@ -1,39 +1,44 @@
-# Set up a files app
+# Connect a files app
 
 ## Overview
 
-OpenGovMail files run in Nextcloud. You can use them in the browser, sync them to a computer, or open them on a phone.
+OpenGovMail files are in Nextcloud. You can use them in a browser, sync them to a computer, or open them on a phone.
 
-In this guide, `cloud.yourdomain.com` stands for your organization's Nextcloud address. Your administrator can tell you what it is.
+In this procedure, `cloud.yourdomain.com` is the Nextcloud address of your organization. Your administrator can give you this address.
 
 ## In the browser
 
 Sign in at `https://cloud.yourdomain.com` through ThunderID.
 
-- Your group's shared drives appear as folders in `Files`. An administrator creates each one and gives a ThunderID group access.
-- Click a document, spreadsheet or presentation to edit it in the browser. Others who open the same file edit it with you at the same time.
-- To share a file outside the organisation, open its `Share` panel and create a link. Set an expiry date, and a password if the file needs one.
-- An overwritten file keeps its earlier versions under `Versions`. A deleted file goes to `Deleted files`, where you can restore it.
+- The shared drives of your group are folders in `Files`. An administrator creates each shared drive and gives a ThunderID group access to it.
+- To edit a document, a spreadsheet or a presentation in the browser, click it. Other people can open the same file and edit it at the same time.
+- To share a file with people outside your organization, open its `Share` panel and create a link. Set an expiry date. If the file is sensitive, also set a password.
+- When you replace a file, Nextcloud keeps its earlier versions in `Versions`. When you delete a file, Nextcloud moves it to `Deleted files`. You can restore it from there.
 
 ## Desktop sync
 
 1. Install the [Nextcloud desktop client](https://nextcloud.com/install/#desktop-files) for Windows, macOS or Linux.
 2. Enter `https://cloud.yourdomain.com` as the server address.
-3. A browser window opens. Sign in through ThunderID and grant access.
-4. Choose a local folder and what to sync.
+3. A browser window opens. Sign in through ThunderID and give access.
+4. Select a local folder. Select the folders to sync.
 
 ## Phones and tablets
 
 1. Install the Nextcloud app from the App Store, Google Play or F-Droid.
-2. Enter `https://cloud.yourdomain.com` and sign in through ThunderID in the window it opens.
+2. Enter `https://cloud.yourdomain.com`.
+3. Sign in through ThunderID in the window that opens.
 
 ## Other WebDAV apps
 
-Apps that only speak WebDAV need an app password. Create one under `Personal settings`, then `Security`, then `Devices & sessions`, and use the username and password it shows with this address:
+Apps that use only WebDAV must have an app password.
 
-```
-https://cloud.yourdomain.com/remote.php/dav/files/<username>/
-```
+1. In Nextcloud, open `Personal settings`, then `Security`, then `Devices & sessions`.
+2. Create an app password.
+3. In the app, use the username and the password that Nextcloud shows, with this address:
+
+   ```
+   https://cloud.yourdomain.com/remote.php/dav/files/<username>/
+   ```
 
 ## See also
 

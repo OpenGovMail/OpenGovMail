@@ -2,13 +2,13 @@
 
 ## Overview
 
-This guide adds mail users in the ThunderID console that ships with OpenGovMail. Each user you add gets a mailbox and can sign in to every OpenGovMail service. [Identity and users](../concepts/identity-and-users.md) explains organization units, user types and groups.
+This procedure adds mail users in the ThunderID console. The ThunderID console is a part of OpenGovMail. Each user that you add gets a mailbox. The user can sign in to all the OpenGovMail services. [Identity and users](../concepts/identity-and-users.md) tells you about organization units, user types and groups.
 
 ## Before you start
 
-- OpenGovMail is installed. See the [installation guide](../installation-guide.md).
-- You can reach the console at `https://<your-domain>:8090/console`.
-- You have the ThunderID `admin` password. If the chart generated it, read it with:
+- Install OpenGovMail. Read the [installation guide](../installation-guide.md).
+- Make sure that you can open the console at `https://<your-domain>:8090/console`.
+- Get the password of the ThunderID `admin` user. If the chart made the password, show it with this command:
 
   ```bash
   kubectl get secret opengovmail-thunder-admin -n opengovmail \
@@ -17,28 +17,34 @@ This guide adds mail users in the ThunderID console that ships with OpenGovMail.
 
 ## Add a user
 
-1. Open `https://<your-domain>:8090/console` and sign in as `admin`.
-2. Choose the organization unit the user belongs to. The `default` unit owns your main domain.
-3. Add the user with the `Person` user type, or your own user type if you created one.
-4. Choose how the user gets a password:
-   - Set a username and password yourself.
-   - Enter the user's other email address, and ThunderID emails them an invitation link to set their own password.
+1. Open `https://<your-domain>:8090/console`.
+2. Sign in as `admin`.
+3. Select the organization unit of the user. The `default` organization unit has your main domain.
+4. Add the user with the `Person` user type. If you created a different user type, you can use it.
+5. Give the user a password. Do one of these:
+   - Set a username and a password.
+   - Enter a different email address of the user. ThunderID sends an invitation to this address. The user sets a password with the link in the invitation.
+6. Send the [user guide](../user-guide/README.md) to the user.
 
-The user signs in to mail clients with their full email address. Send them the [user guide](../user-guide/README.md).
+The user signs in to mail apps with the full email address.
 
-## Use your own user type
+## Use a different user type
 
-The `Person` type fits most installs. To store different attributes:
+The `Person` user type is correct for most installations. To keep different attributes, do these steps:
 
-1. In the console, create a user type with the fields you need, including `username` and `password`.
-2. Assign it to the organization unit its users belong to.
-3. Add users with it, as above.
-4. If you use collaboration, list the type in `nextcloudDeps.registerJob.allowedUserTypes` and `tuwunelDeps.registerJob.allowedUserTypes`, and map its attributes in `nextcloudDeps.claims`. See [Turn on collaboration](enable-collaboration.md#user-types).
+1. In the console, create a user type with the fields that you must have. Include `username` and `password`.
+2. Assign the user type to the organization unit of its users.
+3. Add users with the user type. Use the procedure in [Add a user](#add-a-user).
+4. If you use the collaboration services, do these steps:
+   1. Add the user type to `nextcloudDeps.registerJob.allowedUserTypes` and `tuwunelDeps.registerJob.allowedUserTypes`.
+   2. Write the attributes of the user type in `nextcloudDeps.claims`.
 
-## Add an organization unit with its own domain
+   Read [Add the collaboration services](enable-collaboration.md#user-types).
 
-1. Create the organization unit in the console and note its ID.
-2. Add the domain to your values file, for Raven to deliver it and OpenDKIM to sign it. Once you list any organization unit, list the `default` one too:
+## Add an organization unit with a different domain
+
+1. Create the organization unit in the console. Write down its ID.
+2. Add the domain to your values file. Raven then delivers mail for the domain, and OpenDKIM signs mail from the domain:
 
    ```yaml
    raven:
@@ -54,10 +60,13 @@ The `Person` type fits most installs. To store different attributes:
          dkimSelector: mail
    ```
 
-3. Run an upgrade. See [Upgrade OpenGovMail](upgrade.md).
-4. Add DNS records for the new domain, as in the [installation guide](../installation-guide.md#step-1-add-dns-records), including its DKIM record from `/etc/dkimkeys/example.org/mail.txt`.
+   If you add one organization unit to `raven.organizationUnitDomains`, you must also add the `default` organization unit.
+
+3. Do an upgrade. Read [Upgrade OpenGovMail](upgrade.md).
+4. Add the DNS records for the new domain. Use the procedure in the [installation guide](../installation-guide.md#step-1-add-dns-records).
+5. Add the DKIM record for the new domain. The record is in `/etc/dkimkeys/example.org/mail.txt`.
 
 ## See also
 
 - [Identity and users](../concepts/identity-and-users.md)
-- [Troubleshooting: mail clients can't sign in](../troubleshooting.md#mail-clients-cant-sign-in)
+- [Troubleshooting: Mail apps cannot sign in](../troubleshooting.md#mail-apps-cannot-sign-in)

@@ -1,18 +1,18 @@
 # Troubleshooting OpenGovMail
 
-In the commands below, `example.com` stands for your domain and `opengovmail` for the namespace you installed into.
+In the commands on this page, `example.com` is your domain and `opengovmail` is the namespace of the installation.
 
-## A certificate stays not ready
+## A certificate does not become ready
 
-`kubectl get certificate -n opengovmail` shows `READY` as `False` for several minutes.
+`kubectl get certificate -n opengovmail` shows `False` in the `READY` column for more than some minutes.
 
 ### Cause
 
-Let's Encrypt couldn't reach the server over port 80 for the hostname, usually because the DNS record doesn't point at the server yet or port 80 is closed. On `le-prod`, you may also have hit the limit of 5 certificates per set of names per week.
+Let's Encrypt cannot connect to the server on port 80 for the hostname. Usually, the DNS record does not point to the server yet, or port 80 is closed. With `le-prod`, a different cause is possible: the limit of 5 certificates for each set of names in one week.
 
 ### Solution
 
-1. Read the reason cert-manager gives:
+1. Find the cause that cert-manager gives:
 
    ```bash
    kubectl describe certificate <name> -n opengovmail
@@ -20,34 +20,51 @@ Let's Encrypt couldn't reach the server over port 80 for the hostname, usually b
    kubectl describe challenge <name> -n opengovmail
    ```
 
-2. Check that `dig +short <hostname>` prints the server's IP address, and that port 80 is open to the internet.
-3. If the message mentions a rate limit, switch `global.tls.issuer` to `le-staging` until the rest of the setup works, then back to `le-prod`.
+2. Make sure that `dig +short <hostname>` shows the IP address of the server.
+3. Make sure that port 80 is open to the internet.
+4. If the message is about a rate limit, set `global.tls.issuer` to `le-staging`. When the other parts of the installation operate correctly, set it to `le-prod` again.
 
 ### For more information
 
 - [cert-manager ACME troubleshooting](https://cert-manager.io/docs/troubleshooting/acme/)
 - [Let's Encrypt rate limits](https://letsencrypt.org/docs/rate-limits/)
 
-## ThunderID setup job never finishes on a first install
+## The ThunderID setup job does not complete on a first installation
 
-On chart 0.6.1, `helm install` doesn't return. `kubectl get pods -n opengovmail` shows the ThunderID setup pod stuck in `ContainerCreating`, and `kubectl describe pod` reports that the `example-com-tls` Secret is missing.
+The `helm install` command does not complete. `kubectl get pods -n opengovmail` shows the ThunderID setup pod in `ContainerCreating`. `kubectl describe pod` shows that the certificate Secret of ThunderID does not exist.
 
 ### Cause
 
-The setup job mounts the certificate for your domain, but the chart only creates that certificate after the job finishes.
+The setup job uses the certificate in `thunderid.declarativeResources.secret.name`. The chart gets this certificate before the job only if the Secret name is `thunderid-tls`. Chart 0.6.1 does not do this for any name. With a different name or with chart 0.6.1, the certificate does not exist when the job starts.
 
-### Solution
+### Solution for chart versions after 0.6.1
 
-Create the certificate before installing, then let Helm take it over.
-
-1. Stop the stuck install and delete the namespace. A first install that never finished holds no mail or accounts. Deleting the namespace also removes the Secrets the first attempt created, which would otherwise make the chart reject the new secrets you pass when you retry:
+1. Stop the installation and delete the namespace:
 
    ```bash
    helm uninstall opengovmail -n opengovmail
    kubectl delete namespace opengovmail
    ```
 
-2. Create the namespace and the certificate, using your domain and issuer:
+   An installation that did not complete has no mail and no accounts. Thus, you lose no data. You must delete the namespace because the first installation made Secrets. If these Secrets stay, the chart does not accept the new secrets in the next installation.
+
+2. In your values file, set `thunderid.declarativeResources.secret.name` to `thunderid-tls`.
+3. Do your `helm install` command again.
+
+### Solution for chart 0.6.1
+
+Create the certificate before you install the chart. Then let Helm take control of the certificate.
+
+1. Stop the installation and delete the namespace:
+
+   ```bash
+   helm uninstall opengovmail -n opengovmail
+   kubectl delete namespace opengovmail
+   ```
+
+   An installation that did not complete has no mail and no accounts. Thus, you lose no data. You must delete the namespace because the first installation made Secrets. If these Secrets stay, the chart does not accept the new secrets in the next installation.
+
+2. Create the namespace and the certificate. Use your domain and your issuer:
 
    ```bash
    kubectl create namespace opengovmail
@@ -67,57 +84,61 @@ Create the certificate before installing, then let Helm take it over.
    kubectl wait --for=condition=Ready certificate/example-com-tls -n opengovmail --timeout=10m
    ```
 
-3. Run your `helm install` command again, with `--take-ownership` added and `--create-namespace` removed. This needs Helm 3.17 or later.
+3. Do your `helm install` command again. Add `--take-ownership` and remove `--create-namespace`. You must have Helm 3.17 or later.
 
-## Pods fail with "no match for platform in manifest"
+## Pods show "no match for platform in manifest"
 
-A pod stays in `ErrImagePull` or `ImagePullBackOff` with "no match for platform in manifest", or crashes with `exec format error`.
-
-### Cause
-
-The node isn't amd64. The OpenGovMail images (Postfix, OpenDKIM and Raven) are built for amd64 only, so they don't run on ARM servers or on Apple Silicon Macs.
-
-### Solution
-
-Run OpenGovMail on an amd64 (x86_64) node. For local development, use an amd64 machine or virtual machine.
-
-## Pods stay Pending after turning on collaboration
-
-Some pods, often including cert-manager's, stay `Pending`. `kubectl describe pod` reports `Insufficient cpu`.
+A pod stays in `ErrImagePull` or `ImagePullBackOff` and shows "no match for platform in manifest". Or the pod stops with `exec format error`.
 
 ### Cause
 
-With collaboration turned on, the pods' CPU requests add up to more than one CPU.
+The node is not amd64. The OpenGovMail images (Postfix, OpenDKIM and Raven) are for amd64 only. They do not operate on ARM servers or on Apple Silicon Macs.
 
 ### Solution
 
-Give the server at least 2 CPUs, or turn off the collaboration services you don't need.
+Install OpenGovMail on an amd64 (x86_64) node. For development, use an amd64 test server.
 
-## Mail clients can't sign in
+## Pods stay Pending after you add the collaboration services
 
-Clients reject the server's certificate, or a correct password is refused.
+Some pods stay `Pending`. Frequently, the cert-manager pods are among them. `kubectl describe pod` shows `Insufficient cpu`.
 
 ### Cause
 
-The install is still on the `le-staging` issuer. Staging certificates aren't trusted, so mail clients reject them, and Raven's calls to ThunderID fail TLS verification.
+The collaboration services request more CPU than one CPU can supply.
 
 ### Solution
 
-Set `global.tls.issuer` to `le-prod` and run an upgrade. See [Upgrade OpenGovMail](how-to/upgrade.md).
+Do one of these:
 
-If the issuer is already `le-prod`, check that the user belongs to an organization unit that owns a mail domain. Users of an organization unit with no domain can't sign in. [Add users](how-to/add-users.md) explains organization units.
+- Give the server a minimum of 2 CPUs.
+- Remove the collaboration services that you do not use.
+
+## Mail apps cannot sign in
+
+The mail app does not accept the certificate of the server. Or the server does not accept a correct password.
+
+### Cause
+
+The installation uses the `le-staging` issuer. Mail apps do not trust staging certificates. Also, the connections from Raven to ThunderID fail the TLS check.
+
+A different cause is possible: the user is in an organization unit that has no mail domain. Users in such an organization unit cannot sign in.
+
+### Solution
+
+1. If the issuer is `le-staging`, set `global.tls.issuer` to `le-prod`. Then do an upgrade. Read [Upgrade OpenGovMail](how-to/upgrade.md).
+2. If the issuer is `le-prod`, make sure that the organization unit of the user has a mail domain. [Add users](how-to/add-users.md) tells you about organization units.
 
 ## Mail goes to spam or fails DKIM
 
-Messages you send land in recipients' spam folders, or [mail-tester](https://www.mail-tester.com/) reports a DKIM, SPF or reverse DNS failure.
+Recipients find your mail in their spam folders. Or [mail-tester](https://www.mail-tester.com/) shows a DKIM, SPF or reverse DNS failure.
 
 ### Cause
 
-One of the DNS records is missing or malformed. The DKIM record is the most common: its key is printed in several quoted parts that must be joined.
+A DNS record does not exist or is not correct. Usually, the cause is the DKIM record. The command shows the DKIM key in some parts, and you must join these parts.
 
 ### Solution
 
-1. Check each record from outside:
+1. Examine each record from outside your network:
 
    ```bash
    dig +short TXT mail._domainkey.example.com
@@ -125,27 +146,29 @@ One of the DNS records is missing or malformed. The DKIM record is the most comm
    dig +short -x 12.34.56.78
    ```
 
-2. The DKIM value must be one string starting `v=DKIM1`, with no quotes or spaces inside the key.
-3. The SPF record must include the server's IP address, and the PTR record must return `mail.example.com`.
-4. Check the server's IP address on [MXToolbox's blocklist check](https://mxtoolbox.com/blacklists.aspx). A new IP address from a cloud provider is sometimes listed already.
+2. Make sure that the DKIM value is one text that starts with `v=DKIM1`. The key must have no quotation marks or spaces in it.
+3. Make sure that the SPF record has the IP address of the server.
+4. Make sure that the PTR record shows `mail.example.com`.
+5. Examine the IP address of the server with the [MXToolbox blocklist check](https://mxtoolbox.com/blacklists.aspx). Sometimes, a new IP address from a cloud provider is on a blocklist already.
 
 ### For more information
 
 - [Installation guide, Step 1 and Step 7](installation-guide.md#step-1-add-dns-records)
 
-## Mail to other servers never arrives
+## Mail to other servers does not arrive
 
-Outgoing mail stays queued, and the Postfix logs show connection timeouts on port 25.
+Outgoing mail stays in the queue. The Postfix logs show timeouts on port 25.
 
 ### Cause
 
-Your hosting provider blocks outbound port 25. Many cloud providers do this by default.
+Your hosting provider closes outbound port 25. Many cloud providers do this by default.
 
 ### Solution
 
-Ask the provider to open outbound port 25. Check the Postfix logs with:
+1. Ask your provider to open outbound port 25.
+2. To examine the Postfix logs, find the Postfix pod and show its logs:
 
-```bash
-kubectl get pods -n opengovmail
-kubectl logs -n opengovmail <postfix-pod>
-```
+   ```bash
+   kubectl get pods -n opengovmail
+   kubectl logs -n opengovmail <postfix-pod>
+   ```

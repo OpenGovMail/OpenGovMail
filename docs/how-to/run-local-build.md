@@ -2,19 +2,19 @@
 
 ## Overview
 
-This guide checks a change to the Helm chart on your own machine, then runs your change, whether to the chart or to one of the images, on a test server. Use it while working on a pull request. [CONTRIBUTING.md](../../CONTRIBUTING.md) covers the rest of the contribution workflow.
+This procedure examines a change to the Helm chart on your computer. It then puts your change on a test server. The change can be to the chart or to one of the images. Use this procedure when you prepare a pull request. [CONTRIBUTING.md](../../CONTRIBUTING.md) gives the other steps of a contribution.
 
 ## Before you start
 
-- Clone your fork of the repository. See [CONTRIBUTING.md](../../CONTRIBUTING.md#fork-and-clone).
-- Install [Helm](https://helm.sh/docs/intro/install/) and [Docker](https://docs.docker.com/engine/install/) on your machine.
-- For running changes, you need a test server with OpenGovMail installed, following the [installation guide](../installation-guide.md). Use a spare domain or a subdomain such as `test.example.com`, and the `le-prod` issuer.
+- Clone your fork of the repository. Read [CONTRIBUTING.md](../../CONTRIBUTING.md#fork-and-clone).
+- Install [Helm](https://helm.sh/docs/intro/install/) and [Docker](https://docs.docker.com/engine/install/) on your computer.
+- To put changes on a test server, install OpenGovMail on the test server. Use the [installation guide](../installation-guide.md) and the `le-prod` issuer. Use a spare domain or a subdomain, for example `test.example.com`.
 
-The test server must be a real server rather than a cluster on your laptop. OpenGovMail needs trusted Let's Encrypt certificates for sign-in to work, and Let's Encrypt can only issue them to a server it can reach over the internet. The server must also be amd64 (x86_64), because the published images are built for amd64 only.
+The test server must be a real server on the internet, not a cluster on your computer. Sign-in operates only with trusted Let's Encrypt certificates. Let's Encrypt gives certificates only to a server that it can connect to through the internet. The server must also be amd64 (x86_64), because the published images are for amd64 only.
 
-## Check a chart change
+## Examine a chart change
 
-These are the same checks CI runs on every pull request that changes `charts/`. They work on any machine.
+CI does these checks on each pull request that changes `charts/`. You can do them on all computers.
 
 ```bash
 CHART=charts/opengovmail
@@ -26,11 +26,12 @@ helm template ci "$CHART" -f "$CHART/values-example.yaml" $SECRETS > /dev/null
 helm template ci "$CHART" --set global.domain=example.com $SECRETS > /dev/null
 ```
 
-To read what your change renders, drop `> /dev/null` and add `--show-only templates/<file>.yaml`.
+To read the output of your change, remove `> /dev/null`. Then add `--show-only templates/<file>.yaml`.
 
-## Run a chart change on the test server
+## Put a chart change on the test server
 
-1. Push your branch, then on the test server check it out:
+1. Push your branch.
+2. On the test server, get your branch:
 
    ```bash
    git fetch origin
@@ -38,33 +39,34 @@ To read what your change renders, drop `> /dev/null` and add `--show-only templa
    helm dependency update ./charts/opengovmail
    ```
 
-2. Run the upgrade command from [Upgrade OpenGovMail](upgrade.md), with your values file.
+3. Do the upgrade command in [Upgrade OpenGovMail](upgrade.md) with your values file.
 
-## Run your own image
+## Use your own image
 
-The chart pulls the published images. To run a changed image, build it, make it available to the cluster, and point the chart at it.
+The chart uses the published images. To use a changed image, do the steps that follow.
 
-1. Build the image on the test server, or on another amd64 machine. For the Postfix image:
+1. Build the image on the test server or on a different amd64 computer. For the Postfix image, use this command:
 
    ```bash
    docker build -t ghcr.io/<you>/opengovmail-smtp:dev -f services/smtp/Dockerfile services
    ```
 
-   The OpenDKIM image is built the same way from `services/dkim/Dockerfile`. Raven is built from the [raven repository](https://github.com/OpenGovMail/raven).
+   For the OpenDKIM image, use `services/dkim/Dockerfile`. You build Raven from the [raven repository](https://github.com/OpenGovMail/raven).
 
-2. Make the image available to the cluster. Either push it to a registry:
+2. Make the image available to the cluster. Do one of these:
+   - Push the image to a registry:
 
-   ```bash
-   docker push ghcr.io/<you>/opengovmail-smtp:dev
-   ```
+     ```bash
+     docker push ghcr.io/<you>/opengovmail-smtp:dev
+     ```
 
-   or, on a single-node k3s server, import it straight into k3s:
+   - On a k3s server with one node, import the image into k3s:
 
-   ```bash
-   docker save ghcr.io/<you>/opengovmail-smtp:dev | sudo k3s ctr images import -
-   ```
+     ```bash
+     docker save ghcr.io/<you>/opengovmail-smtp:dev | sudo k3s ctr images import -
+     ```
 
-3. Point the chart at it:
+3. Set the chart to use the image:
 
    ```bash
    helm upgrade opengovmail ./charts/opengovmail -n opengovmail --reuse-values \
@@ -72,11 +74,11 @@ The chart pulls the published images. To run a changed image, build it, make it 
      --set postfix.image.tag=dev
    ```
 
-   If you imported the image into k3s, also add `--set postfix.image.pullPolicy=Never`. For OpenDKIM use `opendkim.image.*`, and for Raven `raven.image.*`.
+   If you imported the image into k3s, also add `--set postfix.image.pullPolicy=Never`. For OpenDKIM, use `opendkim.image.*`. For Raven, use `raven.image.*`.
 
-## Go back to the published images
+## Return to the published images
 
-Run the upgrade command from [Upgrade OpenGovMail](upgrade.md) without `--reuse-values`. Your values file doesn't set the image, so the chart's defaults return.
+Do the upgrade command in [Upgrade OpenGovMail](upgrade.md) without `--reuse-values`. Your values file does not set the image. Thus, the chart uses its default images again.
 
 ## See also
 

@@ -1,25 +1,25 @@
 # OpenGovMail documentation
 
-OpenGovMail is installed with its Helm chart on Kubernetes. Start with the [quickstart](quickstart.md) if you're new.
+You install OpenGovMail with its Helm chart on Kubernetes. If OpenGovMail is new to you, start with the [quickstart](quickstart.md).
 
 ## Get started
 
-- [Quickstart](quickstart.md): a fresh server to your first sent email.
-- [Installation guide](installation-guide.md): every install step, plus upgrades, rollback and removal.
+- [Quickstart](quickstart.md): from a new server to your first email.
+- [Installation guide](installation-guide.md): all the installation steps, and the procedures to upgrade, roll back and remove OpenGovMail.
 
-## Run OpenGovMail
+## Operate OpenGovMail
 
 - [Add users](how-to/add-users.md)
-- [Turn on collaboration](how-to/enable-collaboration.md)
+- [Add the collaboration services](how-to/enable-collaboration.md)
 - [Upgrade OpenGovMail](how-to/upgrade.md)
 - [Troubleshooting](troubleshooting.md)
 
 ## Use OpenGovMail
 
 - [User guide](user-guide/README.md), with a FAQ
-- [Set up a mail app](user-guide/mail-client.md)
-- [Set up a calendar app](user-guide/calendar-client.md)
-- [Set up a files app](user-guide/files-client.md)
+- [Connect a mail app](user-guide/mail-client.md)
+- [Connect a calendar app](user-guide/calendar-client.md)
+- [Connect a files app](user-guide/files-client.md)
 
 ## Understand OpenGovMail
 
@@ -45,7 +45,7 @@ OpenGovMail is installed with its Helm chart on Kubernetes. Start with the [quic
 
 ## Project planning
 
-Background documents from the project's planning, kept for reference. They aren't instructions.
+These documents are from the planning of the project. They give background data. They are not instructions.
 
 - [Milestones](project/Milestones-M1.md)
 - [New email products](project/New-Email-Products.md)

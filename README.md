@@ -9,7 +9,7 @@
 
 <p align="center">
   <a href="#project-description">Description</a> •
-  <a href="#who-this-project-is-for">Who it's for</a> •
+  <a href="#who-this-project-is-for">Who it is for</a> •
   <a href="#key-features">Key features</a> •
   <a href="#project-dependencies">Dependencies</a> •
   <a href="#instructions-for-using-opengovmail">Using OpenGovMail</a> •
@@ -21,17 +21,17 @@
 
 ## Project description
 
-OpenGovMail is an email and communication system built to work at government scale. It aims to make email faster, smarter and easier to manage while keeping it secure and reliable. The platform grows in two stages: version 1.0 delivers reliable, standards-compliant email, and version 2.0 adds collaboration around it: calendars, shared drives, document editing, meetings and chat.
+OpenGovMail is an email and communication system for organizations as large as a government. Its aim is email that is fast and easy to manage, and also safe and reliable. The platform has two stages. Version 1.0 supplies reliable email that obeys the standards. Version 2.0 adds collaboration services: calendars, shared drives, document editing, meetings and chat.
 
-OpenGovMail runs on your own Kubernetes cluster from one Helm chart, so mail, files and accounts stay on your servers. Each user has one identity, and their email address and their account are the same thing. You can bring your own ThunderID or use the bundled one to organize your users and map your organization's hierarchy.
+OpenGovMail operates on your own Kubernetes cluster from one Helm chart. Thus, your mail, files and accounts stay on your servers. Each user has one identity: the email address and the account are the same. You can use your own ThunderID or the ThunderID that comes with OpenGovMail. ThunderID keeps your users and the structure of your organization.
 
-[Overview of the architecture](docs/concepts/architecture.md) shows how the parts fit together.
+The [overview of the architecture](docs/concepts/architecture.md) shows how the parts connect.
 
 ## Who this project is for
 
-- Governments, public bodies and other organizations that want to run their own email instead of renting it.
-- System administrators who install and run it. You should be comfortable with Linux, DNS and basic Kubernetes.
-- Developers who want to change or extend it. Start with [CONTRIBUTING.md](CONTRIBUTING.md).
+- Governments, public bodies and other organizations that want to operate their own email.
+- System administrators who install and operate OpenGovMail. They must know Linux, DNS and the basics of Kubernetes.
+- Developers who change or extend OpenGovMail. Start with [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Key features
 
@@ -44,8 +44,8 @@ OpenGovMail runs on your own Kubernetes cluster from one Helm chart, so mail, fi
 | Group addresses deliver to every member of a group. | Completed |
 | Role addresses, such as `director@`, belong to the organization rather than a person. | Completed |
 | Accounts come from ThunderID, either the bundled one or one you already run. | Completed |
-| Spam filtering with Rspamd, turned on in the Helm values. | Completed |
-| Calendars, shared drives, document editing, video meetings and chat, each turned on separately. | Completed |
+| Spam filtering with Rspamd. You add it in the Helm values. | Completed |
+| Calendars, shared drives, document editing, video meetings and chat. You add each one separately. | Completed |
 | Malware scanning. | Planned |
 | Configurable backups. | Planned |
 | Email workflows that route a message through set steps, with tracking. | Planned |
@@ -56,55 +56,55 @@ OpenGovMail runs on your own Kubernetes cluster from one Helm chart, so mail, fi
 
 ## Project dependencies
 
-To run OpenGovMail you need:
+To operate OpenGovMail, you must have:
 
-- A Linux server on amd64 (x86_64) with a static public IP address and root access. The published images are built for amd64 only.
-- At least 4 GB of memory, and 2 CPUs if you turn on collaboration.
-- A domain whose DNS you control, and a PTR record for the server's IP address.
-- A Kubernetes cluster. A single-node [k3s](https://k3s.io/) is the tested setup.
+- A Linux server on amd64 (x86_64) with a static public IP address and root access. The published images are for amd64 only.
+- A minimum of 4 GB of memory. With the collaboration services, a minimum of 2 CPUs.
+- A domain with DNS records that you control, and a PTR record for the IP address of the server.
+- A Kubernetes cluster. We test OpenGovMail on [k3s](https://k3s.io/) with one node.
 - [Helm](https://helm.sh/docs/intro/install/), [kubectl](https://kubernetes.io/docs/tasks/tools/) and [Git](https://git-scm.com/downloads/linux).
 
-[Technology stack](docs/reference/technology-stack.md) lists every component and its version.
+The [technology stack](docs/reference/technology-stack.md) gives each component and its version.
 
 ## Instructions for using OpenGovMail
 
 ### Install
 
-- [Quickstart](docs/quickstart.md): from a fresh server to your first sent email.
-- [Installation guide](docs/installation-guide.md): every step and option, including upgrades and removal.
+- [Quickstart](docs/quickstart.md): from a new server to your first email.
+- [Installation guide](docs/installation-guide.md): all the steps and options. It also tells you how to upgrade and remove OpenGovMail.
 
 ### Configure
 
-- [Helm values](docs/reference/helm-values.md): the settings you are most likely to change.
+- [Helm values](docs/reference/helm-values.md): the settings that you will possibly change.
 - [Add users](docs/how-to/add-users.md) in the ThunderID console.
-- [Turn on collaboration](docs/how-to/enable-collaboration.md): Nextcloud, Collabora, Talk and Matrix.
+- [Add the collaboration services](docs/how-to/enable-collaboration.md): Nextcloud, Collabora, Talk and Matrix.
 
-### Run
+### Operate
 
 - [Upgrade OpenGovMail](docs/how-to/upgrade.md) to a new release.
-- [User guide](docs/user-guide/README.md): connect mail, calendar and file apps.
+- [User guide](docs/user-guide/README.md): connect mail, calendar and files apps.
 
 ### Troubleshoot
 
-[Troubleshooting](docs/troubleshooting.md) covers certificates that aren't issued, DKIM failures, mail marked as spam and pods that don't start.
+[Troubleshooting](docs/troubleshooting.md) gives solutions for certificates that do not become ready, DKIM failures, mail in spam folders and pods that do not start.
 
 ## Contributing guidelines
 
-Contributions of any size are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) explains how to set up a development environment, keep a fork up to date and open a pull request. Everyone taking part follows the [code of conduct](CODE_OF_CONDUCT.md).
+We welcome all contributions, large and small. [CONTRIBUTING.md](CONTRIBUTING.md) tells you how to prepare a development environment, keep a fork up to date and open a pull request. All contributors obey the [code of conduct](CODE_OF_CONDUCT.md).
 
-To report a security problem, follow [SECURITY.md](SECURITY.md) instead of opening an issue.
+To report a security problem, do not open an issue. Use the procedure in [SECURITY.md](SECURITY.md).
 
 ## Additional documentation
 
 - [Documentation index](docs/README.md)
-- [Release notes](CHANGELOG.md), one entry per version, following [Semantic Versioning](https://semver.org/)
+- [Release notes](CHANGELOG.md). There is one entry for each version. The versions follow [Semantic Versioning](https://semver.org/).
 - [Glossary](docs/glossary.md)
 
 ## How to get help
 
 - Ask in the [OpenGovMail Slack](https://join.slack.com/t/lsflk/shared_invite/zt-4ddz9zqnn-8lnG12b9Ty1Pclnx_hdIwA).
-- Open a [GitHub issue](https://github.com/OpenGovMail/OpenGovMail/issues) for a bug or a feature request.
+- To report a bug or to ask for a feature, open a [GitHub issue](https://github.com/OpenGovMail/OpenGovMail/issues).
 
 ## Terms of use
 
-OpenGovMail is distributed under the Apache 2.0 License. See [LICENSE](LICENSE).
+OpenGovMail has the Apache 2.0 License. Read [LICENSE](LICENSE).

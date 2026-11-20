@@ -1,8 +1,8 @@
 # Helm values
 
-This page describes the values you are most likely to set in your values file. Every value, with comments, is in [values.yaml](../../charts/opengovmail/values.yaml), and each subchart's own `values.yaml` under [charts/opengovmail/charts/](../../charts/opengovmail/charts). [values-example.yaml](../../charts/opengovmail/values-example.yaml) is a complete values file to start from.
+This page gives the values that you will possibly set in your values file. All the values, with comments, are in [values.yaml](../../charts/opengovmail/values.yaml) and in the `values.yaml` of each subchart in [charts/opengovmail/charts/](../../charts/opengovmail/charts). [values-example.yaml](../../charts/opengovmail/values-example.yaml) is a complete values file. You can start from it.
 
-Secrets go on the command line, not in the values file. See [Secrets](#secrets).
+Give secrets on the command line. Do not put them in the values file. Read [Secrets](#secrets).
 
 ## Domain and certificates
 
@@ -43,7 +43,7 @@ Secrets go on the command line, not in the values file. See [Secrets](#secrets).
 | `raven.thunder.resourceIdentifier` | The resource server Raven asks ThunderID for a token to. Keep the default with the bundled ThunderID. With an external one, use the identifier it registered for its System resource server. | `https://localhost:8090/mcp` |
 | `thunderid.configuration.server.publicUrl` | ThunderID's public address. Must match `global.domain`. | `https://example.com:8090` |
 | `thunderid.configuration.gateClient.hostname` | ThunderID's sign-in page hostname. Must match `global.domain`. | `example.com` |
-| `thunderid.declarativeResources.secret.name` | Certificate Secret ThunderID serves. Your domain with dots as dashes, then `-tls`. | `example-com-tls` |
+| `thunderid.declarativeResources.secret.name` | The certificate Secret that ThunderID uses. With `thunderid-tls`, the chart gets the certificate before the ThunderID setup job. With a different name, you must supply the Secret yourself. | `thunderid-tls` |
 
 ## Storage
 
@@ -63,18 +63,18 @@ Secrets go on the command line, not in the values file. See [Secrets](#secrets).
 | `nextcloudDeps.registerJob.allowedUserTypes` | ThunderID user types that can sign in to Nextcloud. | `["Person"]` |
 | `nextcloudDeps.claims` | ThunderID attributes Nextcloud reads for the display name, email address and other fields. | `{displayName: full_name, email: external_email}` |
 | `tuwunel.enabled` | Run Tuwunel, the Matrix server. | `false` |
-| `tuwunel.serverName` | The part after the colon in Matrix IDs. Empty uses `global.domain`. It can't change after the first start without wiping the database. | `example.com` |
+| `tuwunel.serverName` | The part after the colon in Matrix IDs. Empty uses `global.domain`. You cannot change it after the first start. A change makes it necessary to delete the database. | `example.com` |
 | `tuwunel.host` | Matrix hostname. Empty uses `matrix.<serverName>`. | `matrix.example.com` |
 | `tuwunel.matrixRtc.enabled` | Run LiveKit for Matrix calls. | `false` |
 | `tuwunelDeps.registerJob.allowedUserTypes` | ThunderID user types that can sign in to Matrix. | `["Person"]` |
 
 ## Secrets
 
-Pass these with `--set` or `--set-string`, or from a values file you never commit.
+Give these values with `--set` or `--set-string`. Or put them in a values file that you do not commit.
 
 | Field | Description | When to set |
 |---|---|---|
 | `global.thunderAdmin.password` | Password for the ThunderID `admin` user. Empty generates one on the first install and keeps it. Set it explicitly when rendering with `helm template`. | Install and upgrade |
-| `global.ravenIdp.clientSecret` | Raven's secret for signing in to ThunderID. A different value on upgrade fails the render. | First install only |
-| `global.ravenIdp.directAuthSecret` | Secret protecting ThunderID's password check, Raven's copy. | First install only |
-| `thunderid.configuration.server.security.directAuthSecret` | The same secret, ThunderID's copy. Must equal Raven's. | Install and upgrade |
+| `global.ravenIdp.clientSecret` | The secret that Raven uses to sign in to ThunderID. If you give a different value in an upgrade, the upgrade stops. | First install only |
+| `global.ravenIdp.directAuthSecret` | The secret that protects the password check of ThunderID. This is the copy for Raven. | First install only |
+| `thunderid.configuration.server.security.directAuthSecret` | The same secret. This is the copy for ThunderID. It must be the same as the copy for Raven. | Install and upgrade |

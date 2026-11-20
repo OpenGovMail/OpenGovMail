@@ -1,6 +1,6 @@
 # Overview of the architecture
 
-OpenGovMail is a set of open source services that one Helm chart, [charts/opengovmail](../../charts/opengovmail), installs together on Kubernetes. Email and identity are always on. The collaboration services are optional and shown dashed below. This page explains how the parts connect and how mail moves between them. [Technology stack](../reference/technology-stack.md) lists each component's version.
+OpenGovMail is a set of open source services. One Helm chart, [charts/opengovmail](../../charts/opengovmail), installs them together on Kubernetes. Email and identity are always on. The collaboration services are optional. The diagram shows them with dashed lines. This page tells you how the parts connect and how mail moves between them. The [technology stack](../reference/technology-stack.md) gives the version of each component.
 
 ```mermaid
 flowchart LR
@@ -54,9 +54,9 @@ flowchart LR
 
 ## Background
 
-OpenGovMail is built from existing open source servers rather than written from scratch. Postfix handles SMTP, the protocol mail servers use to pass mail to each other. Raven, written for this project, stores mailboxes and serves them to mail clients over IMAP. ThunderID holds the accounts, so every service checks the same user name and password, and an email address and an account are the same thing.
+Most parts of OpenGovMail are open source servers that existed before the project. Postfix operates SMTP. SMTP is the protocol that mail servers use to send mail to each other. Raven is new for this project. It keeps the mailboxes and supplies them to mail apps through IMAP. ThunderID keeps the accounts. Thus, all the services use the same username and password, and an email address and an account are the same.
 
-On Kubernetes, each service runs in its own pod. cert-manager gets Let's Encrypt certificates for every hostname, and Traefik, the ingress controller in k3s, routes web traffic to the right service. Postfix and Raven bind their mail ports directly on the node, so they see each client's real IP address, which spam scoring needs.
+On Kubernetes, each service operates in its own pod. cert-manager gets Let's Encrypt certificates for each hostname. Traefik is the ingress controller in k3s. It sends web traffic to the correct service. Postfix and Raven use their mail ports directly on the node. Thus, they see the real IP address of each client. Spam filters must have this address.
 
 ## How mail moves
 
@@ -79,17 +79,17 @@ Figure 2: Inbound email flow
 </tr>
 </table>
 
-- Incoming mail reaches Postfix, which checks it with Rspamd when that's turned on and hands it to Raven over LMTP. Raven stores each user's mailbox in its own SQLite database and keeps attachments in SeaweedFS.
-- Outgoing mail is submitted to Postfix, which asks Raven to check the password (SASL), signs the message with OpenDKIM, and sends it.
-- Mail clients read mail from Raven over IMAP.
-- Raven looks up users, groups and domains in ThunderID. Each ThunderID organization unit owns one or more mail domains. [Identity and users](identity-and-users.md) explains this.
+- Incoming mail goes to Postfix. If Rspamd is on, Postfix sends the mail to Rspamd for a spam check. Then Postfix gives the mail to Raven through LMTP. Raven keeps the mailbox of each user in a separate SQLite database. It keeps attachments in SeaweedFS.
+- Mail apps send outgoing mail to Postfix. Postfix asks Raven to examine the password (SASL). Then OpenDKIM signs the message, and Postfix sends it.
+- Mail apps read mail from Raven through IMAP.
+- Raven gets the users, groups and domains from ThunderID. Each ThunderID organization unit has one or more mail domains. [Identity and users](identity-and-users.md) tells you more.
 
 ## Use cases
 
-- An organization running mail only installs the chart with its defaults: Postfix, OpenDKIM, Raven, ThunderID and SeaweedFS.
-- An organization that wants spam filtering turns on Rspamd, with Redis for its storage and Unbound as its DNS resolver.
-- An organization that wants calendars, files, document editing and meetings turns on Nextcloud, which brings Collabora and Talk. Chat adds Tuwunel, a Matrix server, and LiveKit for its calls. All of them sign users in through ThunderID. See [Turn on collaboration](../how-to/enable-collaboration.md).
-- An organization that already runs ThunderID points the chart at it with `global.thunder.url` instead of installing the bundled one.
+- An organization with only mail installs the chart with its default values. These install Postfix, OpenDKIM, Raven, ThunderID and SeaweedFS.
+- For spam filtering, an organization adds Rspamd. Rspamd uses Redis to keep its data and Unbound as its DNS resolver.
+- For calendars, files, document editing and meetings, an organization adds Nextcloud. Nextcloud brings Collabora and Talk. For chat, the organization adds Tuwunel, a Matrix server, and LiveKit for calls. All these services sign users in through ThunderID. Read [Add the collaboration services](../how-to/enable-collaboration.md).
+- An organization that has a ThunderID already sets `global.thunder.url` to it. Then the chart does not install a second ThunderID.
 
 ## Source
 
