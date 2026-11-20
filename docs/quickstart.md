@@ -54,8 +54,12 @@ You must have these items:
    mkdir -p ~/.kube
    sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
    sudo chown "$USER" ~/.kube/config
+   export KUBECONFIG=~/.kube/config
+   echo 'export KUBECONFIG=~/.kube/config' >> ~/.bashrc
    curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
    ```
+
+   The `kubectl` command that k3s installs reads `/etc/rancher/k3s/k3s.yaml` by default, which only `root` can read. The two `KUBECONFIG` lines make `kubectl` use your copy in this session and in new sessions.
 
 2. Make sure that the cluster operates:
 
