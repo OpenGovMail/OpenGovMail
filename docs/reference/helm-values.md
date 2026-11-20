@@ -40,6 +40,7 @@ Secrets go on the command line, not in the values file. See [Secrets](#secrets).
 |---|---|---|
 | `thunderid.enabled` | Run the bundled ThunderID. | `true` |
 | `global.thunder.url` | An external ThunderID to use instead, with `thunderid.enabled: false`. Empty uses the bundled one at `https://<domain>:8090`. | `https://thunder.example.com` |
+| `raven.thunder.resourceIdentifier` | The resource server Raven asks ThunderID for a token to. Keep the default with the bundled ThunderID. With an external one, use the identifier it registered for its System resource server. | `https://localhost:8090/mcp` |
 | `thunderid.configuration.server.publicUrl` | ThunderID's public address. Must match `global.domain`. | `https://example.com:8090` |
 | `thunderid.configuration.gateClient.hostname` | ThunderID's sign-in page hostname. Must match `global.domain`. | `example.com` |
 | `thunderid.declarativeResources.secret.name` | Certificate Secret ThunderID serves. Your domain with dots as dashes, then `-tls`. | `example-com-tls` |

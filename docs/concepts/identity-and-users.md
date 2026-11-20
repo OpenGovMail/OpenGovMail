@@ -37,7 +37,7 @@ Nextcloud and Matrix register themselves in ThunderID on every install and upgra
 
 - A single organization with one domain uses the defaults. Every user goes in the `default` organization unit.
 - A ministry with several departments, each with its own domain, creates an organization unit per department and lists each one's domain in `raven.organizationUnitDomains`.
-- An organization that already runs ThunderID sets `global.thunder.url` to it and `thunderid.enabled` to `false`. It must then set `raven.organizationUnitDomains`, and create Raven's application and permissions in its ThunderID.
+- An organization that already runs ThunderID sets `global.thunder.url` to it and `thunderid.enabled` to `false`. It must then set `raven.organizationUnitDomains`, create Raven's application and permissions in its ThunderID, and set `raven.thunder.resourceIdentifier` to the identifier its ThunderID registered for the System resource server, such as `https://thunder.example.com/mcp`. The default, `https://localhost:8090/mcp`, only matches the bundled ThunderID. With the wrong value, ThunderID refuses Raven's token request with `invalid_target` and users can't sign in to mail.
 
 ## Comparison with a traditional mail server
 

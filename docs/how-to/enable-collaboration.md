@@ -15,6 +15,7 @@ This guide turns on the collaboration services the Helm chart can run next to em
 ## Before you start
 
 - OpenGovMail is installed and uses the `le-prod` issuer. Nextcloud won't fetch ThunderID's sign-in settings over an untrusted staging certificate.
+- Your values file has the `thunderid` certificate settings from [Step 5 of the installation guide](../installation-guide.md#step-5-write-a-values-file): `thunderid.configuration.tls` and `thunderid.declarativeResources`. Without them ThunderID serves a self-signed certificate, and the upgrade stops with an error saying Nextcloud and Tuwunel need a trusted one. An install made with `--set` flags only, without a values file, doesn't have them.
 - The server has at least 2 CPUs. On 1 CPU the pods' CPU requests fill the node, and some pods, including cert-manager's, never get scheduled.
 - You have chosen a hostname for Nextcloud and one for Collabora, such as `cloud.example.com` and `office.example.com`.
 
@@ -26,7 +27,7 @@ This guide turns on the collaboration services the Helm chart can run next to em
 4. Run an upgrade. See [Upgrade OpenGovMail](upgrade.md).
 5. Open `https://cloud.example.com` and sign in with a mail account.
 
-Collabora's hostname is set in three places: `nextcloud.collabora.ingress`, `collabora.server_name` and `collabora.aliasgroups`. Users never open it directly; Nextcloud loads the editor from it.
+Collabora's hostname is set in three places: `nextcloud.collabora.ingress`, `nextcloud.collabora.collabora.server_name` and `nextcloud.collabora.collabora.aliasgroups`. Users never open it directly; Nextcloud loads the editor from it.
 
 ## Create a shared drive
 

@@ -40,16 +40,17 @@ The setup job mounts the certificate for your domain, but the chart only creates
 
 Create the certificate before installing, then let Helm take it over.
 
-1. Stop the stuck install:
+1. Stop the stuck install and delete the namespace. A first install that never finished holds no mail or accounts. Deleting the namespace also removes the Secrets the first attempt created, which would otherwise make the chart reject the new secrets you pass when you retry:
 
    ```bash
    helm uninstall opengovmail -n opengovmail
+   kubectl delete namespace opengovmail
    ```
 
-2. Create the certificate, using your domain and issuer:
+2. Create the namespace and the certificate, using your domain and issuer:
 
    ```bash
-   kubectl create namespace opengovmail --dry-run=client -o yaml | kubectl apply -f -
+   kubectl create namespace opengovmail
    kubectl apply -n opengovmail -f - <<EOF
    apiVersion: cert-manager.io/v1
    kind: Certificate
@@ -66,7 +67,7 @@ Create the certificate before installing, then let Helm take it over.
    kubectl wait --for=condition=Ready certificate/example-com-tls -n opengovmail --timeout=10m
    ```
 
-3. Run your `helm install` command again with `--take-ownership` added. This needs Helm 3.17 or later.
+3. Run your `helm install` command again, with `--take-ownership` added and `--create-namespace` removed. This needs Helm 3.17 or later.
 
 ## Pods fail with "no match for platform in manifest"
 
