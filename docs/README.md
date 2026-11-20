@@ -1,13 +1,13 @@
 # OpenGovMail documentation
 
-You install OpenGovMail with its Helm chart on Kubernetes. If OpenGovMail is new to you, start with the [quickstart](quickstart.md).
+OpenGovMail is installed with its Helm chart on Kubernetes. Start with the [quickstart](quickstart.md) if you're new.
 
 ## Get started
 
-- [Quickstart](quickstart.md): from a new server to your first email.
-- [Installation guide](installation-guide.md): all the installation steps, and the procedures to upgrade, roll back and remove OpenGovMail.
+- [Quickstart](quickstart.md): a fresh server to your first sent email.
+- [Installation guide](installation-guide.md): every install step, plus upgrades, rollback and removal.
 
-## Operate OpenGovMail
+## Run OpenGovMail
 
 - [Add users](how-to/add-users.md)
 - [Add the collaboration services](how-to/enable-collaboration.md)
@@ -45,7 +45,7 @@ You install OpenGovMail with its Helm chart on Kubernetes. If OpenGovMail is new
 
 ## Project planning
 
-These documents are from the planning of the project. They give background data. They are not instructions.
+Background documents from the project's planning, kept for reference. They aren't instructions.
 
 - [Milestones](project/Milestones-M1.md)
 - [New email products](project/New-Email-Products.md)

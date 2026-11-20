@@ -2,7 +2,7 @@
 
 ## Welcome
 
-Thank you for your interest in OpenGovMail. We welcome all contributions, large and small: bug reports, documentation fixes, chart changes and new features.
+Thank you for wanting to contribute to OpenGovMail. Contributions of any size are welcome: bug reports, documentation fixes, chart changes and new features.
 
 ## OpenGovMail overview
 
@@ -21,7 +21,7 @@ Raven, the mail store, lives in its own repository, [OpenGovMail/raven](https://
 
 - Follow the [code of conduct](CODE_OF_CONDUCT.md).
 - Report security problems privately, as [SECURITY.md](SECURITY.md) describes, not in a public issue.
-- Before you write the code for a large change, discuss it in an issue.
+- Discuss large changes in an issue before writing the code.
 
 ## Community engagement
 
@@ -30,12 +30,12 @@ Raven, the mail store, lives in its own repository, [OpenGovMail/raven](https://
 
 ## Share ideas
 
-Open an issue with the feature template. Tell us the problem that it solves and the people that it is for.
+Open an issue with the feature template. Say what problem it solves and who it's for.
 
 ## Before you start
 
-- Look for an issue about your change. Possibly there is one already. The [good first issues](https://github.com/OpenGovMail/OpenGovMail/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22good%20first%20issue%22) are a good place to begin.
-- If the issue has no assignee, add a comment to the issue. Tell us that you will do the work.
+- Look for an existing issue. The [good first issues](https://github.com/OpenGovMail/OpenGovMail/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22good%20first%20issue%22) are a good place to begin.
+- If nobody is assigned, comment on the issue to say you're working on it.
 
 ## Environment setup
 
@@ -45,12 +45,12 @@ You need [Git](https://git-scm.com/), [Helm](https://helm.sh/docs/intro/install/
 
 ### Troubleshoot
 
-[Troubleshooting](docs/troubleshooting.md) gives the solutions to the usual installation problems.
+[Troubleshooting](docs/troubleshooting.md) covers the problems people hit most often when installing.
 
 ## Best practices
 
 - Keep each pull request to one change.
-- Put deployment-specific settings, such as domains and hostnames, in values files. Do not put them in the default values of the chart.
+- Put deployment-specific settings, such as domains and hostnames, in values files, not in the chart's defaults.
 - Every subchart has a `values.yaml` with safe defaults, its templates, and a `README.md`.
 - Update the documentation in the same pull request as the change it describes.
 
@@ -103,7 +103,7 @@ Keep the message to a subject line and a line or two of body. Put the details in
 ### Pull requests
 
 1. Open a draft pull request early, so maintainers can follow along and help.
-2. Complete the pull request template. Tell us how you tested the change.
+2. Fill in the pull request template, including how you tested the change.
 3. Add an entry under `[Unreleased]` in [CHANGELOG.md](CHANGELOG.md) for any change users would notice.
 4. Mark it ready for review when CI passes.
 
@@ -141,11 +141,7 @@ If you run OpenGovMail with changes of your own:
 
 ### Contributing a patch upstream
 
-Send a downstream patch upstream if it fixes a bug or can help other installations. Then you do not have to keep it yourself.
-
-1. Rebase the patch onto `upstream/main`.
-2. Remove the parts that are only for your installation.
-3. Open a pull request. Use the procedure in [Pull requests](#pull-requests).
+A downstream patch that fixes a bug or would help other installs belongs upstream, so you no longer need to carry it. Rebase it onto `upstream/main`, remove anything specific to your install, and open a pull request as above.
 
 ### Releases
 
