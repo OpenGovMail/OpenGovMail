@@ -91,7 +91,11 @@ The collaboration services use more ports. Read [Hostnames and ports](reference/
    mkdir -p ~/.kube
    sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
    sudo chown "$USER" ~/.kube/config
+   export KUBECONFIG=~/.kube/config
+   echo 'export KUBECONFIG=~/.kube/config' >> ~/.bashrc
    ```
+
+   The `kubectl` command that k3s installs reads `/etc/rancher/k3s/k3s.yaml` by default, which only `root` can read. The two `KUBECONFIG` lines make `kubectl` use your copy in this session and in new sessions.
 
 2. Install Helm:
 
