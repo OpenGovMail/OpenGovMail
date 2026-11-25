@@ -9,17 +9,26 @@ description: Write or edit OpenGovMail documentation (README.md, CONTRIBUTING.md
 
 ## Steps
 
-1. **Pick the topic type first.** Each page is exactly one type, and it goes in a fixed place:
+1. **Find the page's topic type.** Each page is exactly one type, and each type has a fixed place. This is the "Topic types and templates" table from the style guide:
 
    | The page... | Type | Where |
    |---|---|---|
+   | introduces the project | Project overview | `README.md` |
+   | gets a reader running quickly | Quickstart | `docs/quickstart.md` |
+   | covers a full install | Installation guide | `docs/installation-guide.md` |
    | explains an idea | Concept | `docs/concepts/` |
    | gives steps for one task | How-to | `docs/how-to/`, or `docs/user-guide/` for end users |
    | lists facts to look up | Reference | `docs/reference/` |
    | lists problems and fixes | Troubleshooting | `docs/troubleshooting.md` |
-   | defines a term | Glossary | `docs/glossary.md` |
+   | defines terms | Glossary | `docs/glossary.md` |
+   | records changes per release | Changelog | `CHANGELOG.md` |
+   | explains how to contribute | Contributing guide | `CONTRIBUTING.md` |
 
-   If the content mixes types, split it into separate pages and link them. Each type follows its template from [The Good Docs Project](https://gitlab.com/tgdp/templates). Use a page of the same type in `docs/` as a model.
+   Each type follows its template from [The Good Docs Project](https://gitlab.com/tgdp/templates). Use an existing page of the same type as a model.
+
+   - **When you edit an existing page,** keep it where it is and keep its type. Don't move or split it as part of the edit.
+   - **When you add a new page,** pick its type first. If the content mixes types, split it into separate pages of single types and link them.
+   - **Subchart READMEs** (`charts/opengovmail/charts/<name>/README.md`) describe one subchart and its values. They aren't one of the types above. Follow the format of the existing subchart READMEs, such as `charts/opengovmail/charts/redis/README.md`.
 
 2. **Follow the writing rules:**
    - Second person ("you"), present tense, active voice.
