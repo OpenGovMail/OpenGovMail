@@ -1,0 +1,41 @@
+name: Agent Skills
+
+on:
+  push:
+    branches: [ main ]
+    paths: [ '.agents/skills/**', '.claude/skills', '.github/workflows/agent-skills.yml' ]
+  pull_request:
+    paths: [ '.agents/skills/**', '.claude/skills', '.github/workflows/agent-skills.yml' ]
+
+jobs:
+  validate:
+    name: Validate skills
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # skills-ref is the Agent Skills reference validator. It isn't on PyPI,
+      # so install it from a pinned commit.
+      - name: Install skills-ref
+        run: pip install "git+https://github.com/agentskills/agentskills@f130f348f502d9804278a617f86929846896d2e9#subdirectory=skills-ref"
+
+      - name: Validate every skill
+        run: |
+          status=0
+          for dir in .agents/skills/*/; do
+            echo "::group::${dir}"
+            skills-ref validate "$dir" || status=1
+            echo "::endgroup::"
+          done
+          exit $status
+
+      # Claude Code reads .claude/skills; every other agent reads .agents/skills.
+      - name: Check the .claude/skills symlink
+        run: |
+          test -L .claude/skills
+          test "$(readlink .claude/skills)" = "../.agents/skills"
