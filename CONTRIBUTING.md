@@ -43,6 +43,12 @@ You need [Git](https://git-scm.com/), [Helm](https://helm.sh/docs/intro/install/
 
 [Run your own build](docs/how-to/run-local-build.md) shows how to check chart changes on your own machine and run them on a test server.
 
+### Coding agents
+
+If you use an AI coding agent, such as Claude Code, Cursor, GitHub Copilot or Codex, it reads the project instructions in [AGENTS.md](AGENTS.md) and the skills in `.agents/skills/`. You review and answer for everything it writes, as for your own code.
+
+On Windows, Claude Code finds the skills through the `.claude/skills` symlink. Turn on Developer Mode and run `git config --global core.symlinks true` before you clone, or Git checks the symlink out as a plain text file.
+
 ### Troubleshoot
 
 [Troubleshooting](docs/troubleshooting.md) covers the problems people hit most often when installing.
