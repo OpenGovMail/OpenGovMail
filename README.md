@@ -46,7 +46,7 @@ OpenGovMail runs on your own Kubernetes cluster from one Helm chart, so mail, fi
 | Accounts come from ThunderID, either the bundled one or one you already run. | Completed |
 | Spam filtering with Rspamd, turned on in the Helm values. | Completed |
 | Calendars, shared drives, document editing, video meetings and chat, each turned on separately. | Completed |
-| Malware scanning. | Planned |
+| Malware scanning through Rspamd, using a ClamAV server you run. | Completed |
 | Configurable backups. | Planned |
 | Email workflows that route a message through set steps, with tracking. | Planned |
 | A native email client with IMAP and JMAP support. | Planned |
