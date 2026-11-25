@@ -64,7 +64,8 @@ render "." after "$@"
 # including fixed values in Secrets, stay visible.
 mask() {
   awk -F '\t' '
-    NR == FNR { volatile[$0] = 1; next }
+    # FILENAME, not NR == FNR: the list can be empty.
+    FILENAME == ARGV[1] { volatile[$0] = 1; next }
     {
       line = substr($0, length($1) + 2)
       if ($1 in volatile) {
