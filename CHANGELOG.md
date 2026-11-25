@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Unbound runs as a non-root user with every capability dropped, using the maintained `klutchell/unbound:1.26.2` image instead of the unmaintained `mvance/unbound:latest`. The pod sets the safe sysctl `net.ipv4.ip_unprivileged_port_start=53`, so Unbound still listens on port 53. A custom `unbound.configuration` that sets `chroot`, `username` or paths under `/opt/unbound` needs updating, and `unbound.configuration` can no longer be empty ([#428](https://github.com/OpenGovMail/OpenGovMail/issues/428)).
+
 ## [0.6.1] - 2026-11-17
 
 ### Added

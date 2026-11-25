@@ -1,8 +1,10 @@
 replicaCount: 1
 
 image:
-  repository: mvance/unbound
-  tag: "latest"
+  # A distroless image, kept up to date with Unbound releases, that needs no
+  # root: its config and data folders belong to the unbound user (101:102).
+  repository: klutchell/unbound
+  tag: "1.26.2"
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
@@ -17,18 +19,28 @@ serviceAccount:
 
 podAnnotations: {}
 
-# mvance/unbound's entrypoint (unbound.sh) requires root: it copies device
-# nodes into /opt/unbound/etc/unbound/dev and chowns files under its own
-# etc dir before exec'ing unbound. It has no built-in privilege drop, so
-# running as non-root breaks startup. Kept minimal: drop the genuinely
-# unnecessary `privileged`/`allowPrivilegeEscalation` grants instead.
+# Unbound runs as the image's unbound user from the start, with no
+# capabilities. The sysctl lets that non-root user bind port 53; Kubernetes
+# treats it as a safe, pod-scoped sysctl, so no node setting is needed.
 podSecurityContext:
-  runAsUser: 0
-  runAsNonRoot: false
+  runAsUser: 101
+  runAsGroup: 102
+  runAsNonRoot: true
+  fsGroup: 102
+  fsGroupChangePolicy: OnRootMismatch
+  seccompProfile:
+    type: RuntimeDefault
+  sysctls:
+    - name: net.ipv4.ip_unprivileged_port_start
+      value: "53"
 
 securityContext:
   allowPrivilegeEscalation: false
-  runAsUser: 0
+  capabilities:
+    drop:
+      - ALL
+  # Unbound rewrites /var/unbound/root.key when the DNSSEC root key rolls over.
+  readOnlyRootFilesystem: false
 
 service:
   type: ClusterIP
@@ -58,16 +70,14 @@ persistence:
   size: 512Mi
   mountPath: /var/lib/unbound
 
-# unbound.conf, mounted over the image's own. The image entrypoint only writes its
-# default config when none exists, and that default is unsuitable here for two
-# reasons:
-#   - it forwards every query to Cloudflare (forward-records.conf). Spamhaus,
-#     SURBL and other DNS blocklists refuse queries arriving through public
-#     resolvers, so rspamd's RBL checks silently return nothing.
-#   - it sizes its caches from the HOST's memory (GBs), not the pod's limit, so
-#     the pod is OOM-killed as the cache fills.
-# This config resolves recursively from the root servers with caches sized to
-# fit resources.limits.memory. Set to "" to fall back to the image's default.
+# unbound.conf, mounted over the image's own. Required: the image's default
+# config switches to the unbound user itself, which only works when started as
+# root. This one:
+#   - resolves recursively from the root servers. Spamhaus, SURBL and other DNS
+#     blocklists refuse queries that arrive through public resolvers, so
+#     forwarding would make rspamd's RBL checks silently return nothing.
+#   - sizes its caches to fit resources.limits.memory.
+#   - runs without chroot or a user switch, as the non-root user it starts as.
 configuration: |
   server:
     interface: 0.0.0.0@53
@@ -84,11 +94,16 @@ configuration: |
     access-control: 172.16.0.0/12 allow
     access-control: 192.168.0.0/16 allow
 
-    # Paths match the mvance/unbound image layout (chroot + trust anchor).
-    directory: "/opt/unbound/etc/unbound"
-    chroot: "/opt/unbound/etc/unbound"
-    username: "_unbound"
-    auto-trust-anchor-file: "var/root.key"
+    # Already the unbound user: no chroot and no user switch. /var/unbound
+    # belongs to that user and holds the image's root hints and DNSSEC trust
+    # anchor, which Unbound keeps up to date.
+    do-daemonize: no
+    directory: "/var/unbound"
+    chroot: ""
+    username: ""
+    pidfile: ""
+    root-hints: "/var/unbound/root.hints"
+    auto-trust-anchor-file: "/var/unbound/root.key"
 
     # Logs to stderr (kubectl logs).
     use-syslog: no
@@ -107,6 +122,8 @@ configuration: |
     key-cache-size: 16m
     neg-cache-size: 4m
     so-reuseport: yes
+    # The system's socket buffer size; a larger one needs root to request.
+    so-sndbuf: 0
     outgoing-range: 4096
     num-queries-per-thread: 2048
 

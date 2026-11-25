@@ -1,48 +1,47 @@
-# Unbound Helm Chart
+# Unbound subchart
 
-Unbound DNS resolver for rspamd DNS queries and recursive resolution.
+Runs Unbound, a recursive DNS resolver, for Rspamd's DNS and blocklist (RBL) lookups. It resolves from the root servers itself, because Spamhaus, SURBL and other blocklists refuse queries that arrive through public resolvers.
 
-## Installation
+## Turn it on
 
-```bash
-helm install unbound ./unbound \
-  --set persistence.enabled=true \
-  --set persistence.size=512Mi
+Unbound is off by default. Turn it on together with Rspamd in your values file:
+
+```yaml
+rspamd:
+  enabled: true
+unbound:
+  enabled: true
 ```
 
-## Configuration
-
-Key values:
+## Values
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `replicaCount` | int | `1` | Number of replicas |
-| `image.repository` | string | `mvance/unbound` | Image repository |
-| `image.tag` | string | `latest` | Image tag |
-| `persistence.enabled` | bool | `true` | Enable persistent volume for cache |
-| `persistence.size` | string | `512Mi` | Cache volume size |
-| `service.port` | int | `53` | Service port (UDP) |
-| `configuration` | string | Recursive unbound.conf (see values.yaml) | Mounted over the image's `unbound.conf`. The default resolves recursively (no forwarders, which DNS blocklists reject) with caches sized for a 256Mi limit. Set to `""` to use the image's generated config instead |
+| `image.repository` | string | `klutchell/unbound` | Image repository. A distroless image that runs as the `unbound` user. |
+| `image.tag` | string | `1.26.2` | Image tag |
+| `configuration` | string | Recursive `unbound.conf` (see `values.yaml`) | Required. Mounted over the image's `unbound.conf`. The default resolves recursively, validates DNSSEC, runs without chroot or a user switch, and sizes its caches for a 256Mi limit. |
+| `resources.limits.memory` | string | `256Mi` | Memory limit. Lower it only together with the cache sizes in `configuration`. |
+| `service.port` | int | `53` | Service port |
 
-## Usage
+## Security
 
-Unbound is configured for recursive DNS resolution. Access from within cluster:
+Unbound runs as the image's `unbound` user (UID 101, GID 102) from the start, with every Linux capability dropped, privilege escalation off and the `RuntimeDefault` seccomp profile.
+
+- To let a non-root user listen on port 53, the pod sets the sysctl `net.ipv4.ip_unprivileged_port_start=53`. Kubernetes treats it as a safe sysctl since version 1.22, so the node needs no extra setting.
+- `/var/unbound` belongs to the `unbound` user. It holds the root hints and the DNSSEC trust anchor, which Unbound rewrites when the root key rolls over.
+
+## Test it
+
+From any pod in the namespace:
 
 ```bash
+# A normal lookup
 dig @<release-name>-unbound example.com
-```
 
-For port-forward:
-
-```bash
-kubectl port-forward svc/<release-name>-unbound 53:53/udp
-dig @127.0.0.1 -p 53 example.com
+# Spamhaus's test entry: answers 127.0.0.2 when blocklist lookups work
+dig @<release-name>-unbound 2.0.0.127.zen.spamhaus.org +short
 ```
 
 ## Persistence
 
-Cache data is stored via `volumeClaimTemplates` in `/var/lib/unbound`. The PVC persists across pod restarts.
-
-## Dependencies
-
-Unbound chart has no external dependencies.
+The StatefulSet mounts a volume at `/var/lib/unbound`. Unbound keeps its cache in memory and doesn't use that volume. It stays because Kubernetes doesn't allow a StatefulSet's volume claims to change in place, so removing it would break upgrades.

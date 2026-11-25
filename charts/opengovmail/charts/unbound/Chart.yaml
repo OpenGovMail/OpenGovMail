@@ -3,7 +3,7 @@ name: unbound
 description: Unbound DNS resolver for rspamd DNS queries
 type: application
 version: 0.1.0
-appVersion: "latest"
+appVersion: "1.26.2"
 keywords:
   - dns
   - unbound
