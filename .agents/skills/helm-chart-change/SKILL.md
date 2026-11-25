@@ -47,7 +47,8 @@ The chart lives in `charts/opengovmail/`. Local subcharts are in `charts/opengov
 
    - The first argument is the base to compare against. Use the branch the change started from.
    - The script renders the base in a temporary git worktree, so it never touches your working tree or stash, and it includes committed, uncommitted and new files.
-   - The chart generates passwords and keys on every offline render. The script masks Secret values and `checksum/*` annotations, so they don't show as changes.
+   - Each side renders with its own `values-example.yaml`, so changes to that file show up too.
+   - The chart generates passwords and keys on every offline render. The script renders each side twice and shows only the values that differ between the two renders as `<generated>`. Fixed settings, including fixed values in Secrets, stay visible.
    - Extra arguments go to `helm template`. For example, add `--set <name>.enabled=true` to render an optional service.
 
 6. **Add a changelog entry.** If users will notice the change, add it under `[Unreleased]` in `CHANGELOG.md`, in the `Added`, `Changed` or `Fixed` group. Link the pull request.

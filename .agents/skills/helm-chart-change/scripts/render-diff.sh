@@ -25,30 +25,59 @@ cleanup() { git worktree remove --force "$tmp/base" >/dev/null 2>&1 || true; rm 
 trap cleanup EXIT
 git worktree add --quiet --detach "$tmp/base" "$base"
 
-# The chart generates passwords and keys on every offline render, and checksum
-# annotations follow them. Mask both so only real changes show.
-mask() {
+# Prefix each rendered line with a stable id: its template, which document of
+# that template, and its key (or its position, for lines without a key).
+annotate() {
   awk '
-    /^---/                 { secret = 0; section = "" }
-    /^kind: Secret[ \t]*$/ { secret = 1 }
-    /^[A-Za-z]/            { section = $1 }
-    secret && (section == "data:" || section == "stringData:") && /^  [^ ].*: / { sub(/: .*/, ": <secret>") }
-    /checksum\/[A-Za-z0-9_.-]+: / { sub(/: .*/, ": <checksum>") }
-    { print }
+    /^---/              { start = NR; next }
+    /^# Source: /       { src = $3; doc = ++seen[src]; start = NR }
+    {
+      if (match($0, /^ *-? *[^ :]+:/)) key = substr($0, 1, RLENGTH)
+      else key = "line " (NR - start)
+      print src "#" doc "|" key "\t" $0
+    }
   '
 }
 
+# Render one tree twice with the same input. The chart generates passwords and
+# keys on every offline render, so lines that differ between the two renders
+# are random. Print the render, and record those lines' ids.
 render() {
-  local dir="$1" out
-  shift
+  local dir="$1" name="$2" out
+  shift 2
   out=$(helm dependency build "$dir/$chart" 2>&1) || { echo "$out" >&2; return 1; }
-  # Both sides use the working tree's values-example.yaml, so a change to it
-  # shows as its effect on the rendered chart.
-  helm template ci "$dir/$chart" -f "$chart/values-example.yaml" "${secrets[@]}" "$@" | mask
+  # Each side uses its own values-example.yaml, so edits to it show up.
+  local args=(ci "$dir/$chart" -f "$dir/$chart/values-example.yaml" "${secrets[@]}" "$@")
+  helm template "${args[@]}" | annotate > "$tmp/$name.1"
+  helm template "${args[@]}" | annotate > "$tmp/$name.2"
+  paste -d '\n' "$tmp/$name.1" "$tmp/$name.2" | awk -F '\t' '
+    NR % 2 { id = $1; line = $0; next }
+    $0 != line { print id }
+  ' >> "$tmp/volatile"
 }
 
-render "$tmp/base" "$@" > "$tmp/before.yaml"
-render "." "$@" > "$tmp/after.yaml"
+: > "$tmp/volatile"
+render "$tmp/base" before "$@"
+render "." after "$@"
+
+# Mask only the values that change between identical renders. Fixed settings,
+# including fixed values in Secrets, stay visible.
+mask() {
+  awk -F '\t' '
+    NR == FNR { volatile[$0] = 1; next }
+    {
+      line = substr($0, length($1) + 2)
+      if ($1 in volatile) {
+        if (match(line, /^ *-? *[^ :]+: /)) line = substr(line, 1, RLENGTH) "<generated>"
+        else line = "<generated>"
+      }
+      print line
+    }
+  ' "$tmp/volatile" "$1"
+}
+
+mask "$tmp/before.1" > "$tmp/before.yaml"
+mask "$tmp/after.1" > "$tmp/after.yaml"
 
 if diff -u --label "before ($base)" --label "after (working tree)" "$tmp/before.yaml" "$tmp/after.yaml"; then
   echo "No change in the rendered chart."
