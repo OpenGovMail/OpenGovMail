@@ -34,6 +34,7 @@ Open an issue with the feature template. Say what problem it solves and who it's
 
 ## Before you start
 
+- Every pull request is linked to an issue, so everyone can see who is working on what. If there is no issue for your change, open one first.
 - Look for an existing issue. The [good first issues](https://github.com/OpenGovMail/OpenGovMail/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22good%20first%20issue%22) are a good place to begin.
 - If nobody is assigned, comment on the issue to say you're working on it.
 
