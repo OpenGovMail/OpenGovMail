@@ -27,26 +27,28 @@ The chart lives in `charts/opengovmail/`. Local subcharts are in `charts/opengov
 
    ```bash
    CHART=charts/opengovmail
-   SECRETS="--set global.ravenIdp.clientSecret=ci --set global.ravenIdp.directAuthSecret=ci --set thunderid.configuration.server.security.directAuthSecret=ci"
+   # An array, so the flags split the same way in bash and zsh.
+   SECRETS=(--set global.ravenIdp.clientSecret=ci --set global.ravenIdp.directAuthSecret=ci --set thunderid.configuration.server.security.directAuthSecret=ci)
 
    helm repo add nextcloud https://nextcloud.github.io/helm/ 2>/dev/null || true
    helm dependency build "$CHART"
-   helm lint "$CHART" -f "$CHART/values-example.yaml" $SECRETS
-   helm template ci "$CHART" -f "$CHART/values-example.yaml" $SECRETS > /dev/null
-   helm template ci "$CHART" --set global.domain=example.com $SECRETS > /dev/null
+   helm lint "$CHART" -f "$CHART/values-example.yaml" "${SECRETS[@]}"
+   helm template ci "$CHART" -f "$CHART/values-example.yaml" "${SECRETS[@]}" > /dev/null
+   helm template ci "$CHART" --set global.domain=example.com "${SECRETS[@]}" > /dev/null
    ```
 
    If CI changes, [.github/workflows/helm-chart.yml](../../../.github/workflows/helm-chart.yml) is the source of truth for these commands.
 
-5. **Check that the change renders as intended.** Render before and after the change and compare only the parts it should touch:
+5. **Check that the change renders as intended.** Compare the rendered chart before and after the change, and check that only the intended parts differ:
 
    ```bash
-   git stash
-   helm template ci "$CHART" -f "$CHART/values-example.yaml" $SECRETS > /tmp/before.yaml
-   git stash pop
-   helm template ci "$CHART" -f "$CHART/values-example.yaml" $SECRETS > /tmp/after.yaml
-   diff /tmp/before.yaml /tmp/after.yaml
+   .agents/skills/helm-chart-change/scripts/render-diff.sh upstream/main
    ```
+
+   - The first argument is the base to compare against. Use the branch the change started from.
+   - The script renders the base in a temporary git worktree, so it never touches your working tree or stash, and it includes committed, uncommitted and new files.
+   - The chart generates passwords and keys on every offline render. The script masks Secret values and `checksum/*` annotations, so they don't show as changes.
+   - Extra arguments go to `helm template`. For example, add `--set <name>.enabled=true` to render an optional service.
 
 6. **Add a changelog entry.** If users will notice the change, add it under `[Unreleased]` in `CHANGELOG.md`, in the `Added`, `Changed` or `Fixed` group. Link the pull request.
 
