@@ -33,6 +33,7 @@ Give secrets on the command line. Do not put them in the values file. Read [Secr
 | `rspamd.enabled` | Run Rspamd and check incoming mail with it. | `false` |
 | `redis.enabled` | Run Redis for Rspamd. | `false` |
 | `unbound.enabled` | Run Unbound, a DNS resolver for Rspamd's blocklist lookups. | `false` |
+| `clamav.enabled` | Run ClamAV, which Rspamd uses to scan mail for viruses. It needs 1 to 3 GiB of memory. With Rspamd on and ClamAV off, set `rspamd.modules.antivirus.enabled` to `false`. | `false` |
 
 ## Identity
 

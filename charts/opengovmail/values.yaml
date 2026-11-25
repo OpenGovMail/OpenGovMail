@@ -12,6 +12,8 @@ global:
     s3: seaweedfs-s3
     postfix: postfix
     thunderLb: thunder-lb
+    # rspamd's dependencies.clamav.host default; change both together.
+    clamav: clamav-server
   # An external ThunderID, e.g. https://thunder.example.com, with thunderid.enabled
   # false. Empty uses the bundled one at https://<domain>:8090.
   thunder:
@@ -108,6 +110,12 @@ unbound:
   enabled: false
 
 rspamd:
+  enabled: false
+
+# Virus scanning for rspamd. With rspamd enabled and clamav disabled, set
+# rspamd.modules.antivirus.enabled=false, or point rspamd.dependencies.clamav.host
+# at a ClamAV server of your own.
+clamav:
   enabled: false
 
 raven:
