@@ -4,12 +4,14 @@ Runs Unbound, a recursive DNS resolver, for Rspamd's DNS and blocklist (RBL) loo
 
 ## Turn it on
 
-Unbound is off by default. Turn it on together with Rspamd in your values file:
+Unbound is off by default. Turn it on together with Rspamd and Redis in your values file. Rspamd waits for Redis at startup and doesn't start without it.
 
 ```yaml
 rspamd:
   enabled: true
 unbound:
+  enabled: true
+redis:
   enabled: true
 ```
 
