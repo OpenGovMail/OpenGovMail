@@ -61,6 +61,7 @@ Running a change end to end needs an amd64 test server. [Run your own build](doc
 
 ## Commits and pull requests
 
+- **Every pull request is linked to an issue.** Before you start a change, find its issue and check nobody else is working on it. If there is no issue, propose one. Follow the `open-pull-request` skill.
 - Use [Conventional Commits](https://www.conventionalcommits.org/): `type(scope): summary`, for example `feat(charts): add Nextcloud Talk with a coturn TURN server` or `docs: document the Helm install`. Keep the body to a line or two.
 - Name branches after the issue: `<issue-number>-short-description`.
 - Keep each pull request to one change, fill in [the pull request template](.github/pull_request_template.md) and link the issue with `Closes #<number>`.
@@ -69,6 +70,21 @@ Running a change end to end needs an amd64 test server. [Run your own build](doc
 ## Releases
 
 Releases follow Semantic Versioning and are prepared by a maintainer. Don't start one unless a maintainer asks. The steps are in the "Releases" section of [CONTRIBUTING.md](CONTRIBUTING.md): the chart `version` and `appVersion` and the Postfix and OpenDKIM image tags move together, in a pull request titled `chore(release): prepare v<version>`.
+
+## Skills
+
+Step-by-step workflows for common tasks live in `.agents/skills/<name>/SKILL.md`, following the [Agent Skills specification](https://agentskills.io/specification). `.claude/skills` is a symlink to the same folder, for Claude Code. Use the matching skill when a task fits one:
+
+| Skill | Use it to |
+|---|---|
+| `helm-chart-change` | Change the chart or a subchart and check it the way CI does |
+| `add-subchart` | Add a new service as a local subchart |
+| `write-docs` | Write or edit documentation following the style guide |
+| `test-on-server` | Prepare the commands to try a change on a contributor's test server |
+| `open-pull-request` | Find or open the issue for a change, claim it, and open a pull request linked to it |
+| `prepare-release` | Prepare a release pull request, only when a maintainer asks |
+
+When you add or rename a skill, update this table. CI validates every skill with `skills-ref` ([.github/workflows/agent-skills.yml](.github/workflows/agent-skills.yml)).
 
 ## Security
 

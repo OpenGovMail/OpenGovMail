@@ -34,6 +34,7 @@ Open an issue with the feature template. Say what problem it solves and who it's
 
 ## Before you start
 
+- Every pull request is linked to an issue, so everyone can see who is working on what. If there is no issue for your change, open one first.
 - Look for an existing issue. The [good first issues](https://github.com/OpenGovMail/OpenGovMail/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22good%20first%20issue%22) are a good place to begin.
 - If nobody is assigned, comment on the issue to say you're working on it.
 
@@ -42,6 +43,12 @@ Open an issue with the feature template. Say what problem it solves and who it's
 You need [Git](https://git-scm.com/), [Helm](https://helm.sh/docs/intro/install/) and [Docker](https://docs.docker.com/engine/install/). To run your changes end to end you also need an amd64 test server with OpenGovMail installed.
 
 [Run your own build](docs/how-to/run-local-build.md) shows how to check chart changes on your own machine and run them on a test server.
+
+### Coding agents
+
+If you use an AI coding agent, such as Claude Code, Cursor, GitHub Copilot or Codex, it reads the project instructions in [AGENTS.md](AGENTS.md) and the skills in `.agents/skills/`. You review and answer for everything it writes, as for your own code.
+
+On Windows, Claude Code finds the skills through the `.claude/skills` symlink. Turn on Developer Mode and run `git config --global core.symlinks true` before you clone, or Git checks the symlink out as a plain text file.
 
 ### Troubleshoot
 
