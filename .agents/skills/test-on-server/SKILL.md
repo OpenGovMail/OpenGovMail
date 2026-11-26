@@ -32,16 +32,23 @@ Check with the contributor that the test server meets these needs. If it doesn't
    Then they run the `helm upgrade` command from [Upgrade OpenGovMail](../../../docs/how-to/upgrade.md) with their own values file.
 
 3. **For a changed image,** follow the "Use your own image" section of the guide:
-   1. Build it on an amd64 machine, for example `docker build -t ghcr.io/<you>/opengovmail-smtp:dev -f services/smtp/Dockerfile services`. Use `services/dkim/Dockerfile` for OpenDKIM. Raven is built from the [raven repository](https://github.com/OpenGovMail/raven).
+   1. Build it on an amd64 machine with a **new tag for every build**, such as the commit hash. If you reuse a tag like `dev`, the pod spec doesn't change, so Kubernetes keeps running the old image. With `IfNotPresent`, a restart can also reuse the cached copy.
+
+      ```bash
+      TAG=dev-$(git rev-parse --short HEAD)
+      docker build -t ghcr.io/<you>/opengovmail-smtp:$TAG -f services/smtp/Dockerfile services
+      ```
+
+      Use `services/dkim/Dockerfile` for OpenDKIM. Raven is built from the [raven repository](https://github.com/OpenGovMail/raven).
    2. Make the image available to the cluster: either push it to a registry, or on a single-node k3s server import it with `docker save <image> | sudo k3s ctr images import -`.
-   3. Point the release at it with `helm upgrade ... --reuse-values --set postfix.image.repository=... --set postfix.image.tag=dev`. Add `--set postfix.image.pullPolicy=Never` for an imported image. Use `opendkim.image.*` or `raven.image.*` for those images.
+   3. Point the release at it with `helm upgrade ... --reuse-values --set postfix.image.repository=ghcr.io/<you>/opengovmail-smtp --set postfix.image.tag=$TAG`. Add `--set postfix.image.pullPolicy=Never` for an imported image. Use `opendkim.image.*` or `raven.image.*` for those images.
 
 4. **Say what to check,** based on what the change touches. For example:
    - `kubectl get pods -n opengovmail`: all pods are running and none are restarting.
    - `kubectl logs -n opengovmail <pod>`: no new errors in the changed service.
    - For mail changes, send and receive a message from a mail app, and check the DKIM, SPF and DMARC results in the received message's headers.
 
-5. **Say how to go back.** To return to the published images, run the upgrade command again without `--reuse-values`.
+5. **Say how to go back.** To return to the published images, run the `helm upgrade` command from [Upgrade OpenGovMail](../../../docs/how-to/upgrade.md) as it is: with the contributor's own values file, and without `--reuse-values` or any of the `--set ...image...` overrides from step 3. Helm then takes the image settings from the chart's defaults again.
 
 6. **Report the results in the pull request,** under "Testing Instructions", with log excerpts if they help. Leave out the server's domain, IP address, hostnames and any secrets. Use `example.com` and `12.34.56.78` in their place.
 

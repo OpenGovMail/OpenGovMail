@@ -56,6 +56,7 @@ Each OpenGovMail service is a local subchart in `charts/opengovmail/charts/<name
 
 7. **Document it:**
    - `charts/opengovmail/charts/<name>/README.md`: what the service does and a table of its values (key, type, default, description). See `charts/opengovmail/charts/redis/README.md` for the format.
+   - `docs/reference/technology-stack.md`: the component and its version, as [charts/README.md](../../../charts/README.md) asks for every new service.
    - `docs/reference/helm-values.md`: the values users set, under the matching section.
    - `docs/concepts/architecture.md`: where the service fits.
    - `docs/reference/hostnames-and-ports.md`: any hostname or port it exposes.
@@ -69,4 +70,4 @@ Each OpenGovMail service is a local subchart in `charts/opengovmail/charts/<name
 - [ ] The umbrella `Chart.yaml` lists it with `condition: <name>.enabled`, and `values.yaml` has its section
 - [ ] The image tag is pinned and no secret has a real default
 - [ ] The chart checks pass, and the chart renders with the service both enabled and disabled
-- [ ] The docs and `CHANGELOG.md` are updated
+- [ ] The subchart README, `technology-stack.md`, the other docs and `CHANGELOG.md` are updated
