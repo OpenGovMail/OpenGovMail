@@ -1,0 +1,69 @@
+name: Trivy Image Scan
+
+# Rescans the published images every week, because new CVEs are found in images
+# that have already been released. Results go to the Security tab, under Code
+# scanning, one category per image and tag.
+on:
+  schedule:
+    - cron: '41 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  newest-release:
+    runs-on: ubuntu-latest
+    if: github.repository == 'OpenGovMail/OpenGovMail'
+    outputs:
+      version: ${{ steps.find.outputs.version }}
+    steps:
+      # Release tags are v<version>, and the images are tagged <version>.
+      - name: Find the newest release tag
+        id: find
+        run: |
+          version=$(git ls-remote --tags --refs "https://github.com/${GITHUB_REPOSITORY}" 'v[0-9]*' \
+            | sed 's#.*refs/tags/v##' | grep -vE '[-+]' | sort -V | tail -n 1)
+          if [ -z "$version" ]; then
+            echo "::error::No release tag found"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  scan:
+    name: scan-${{ matrix.service }}-${{ matrix.tag }}
+    needs: newest-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [smtp, dkim, certbot, metadata-service]
+        # "release" is the newest release tag, such as 0.6.1.
+        tag: [latest, release]
+    env:
+      IMAGE: ${{ format('{0}-{1}:{2}', 'ghcr.io/opengovmail/opengovmail', matrix.service, matrix.tag == 'release' && needs.newest-release.outputs.version || 'latest') }}
+    steps:
+      # For .trivyignore, which Trivy reads from the working directory.
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Scan the image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: 'image'
+          image-ref: ${{ env.IMAGE }}
+          scanners: 'vuln'
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
+          limit-severities-for-sarif: true
+          format: 'sarif'
+          output: 'trivy-image.sarif'
+
+      - name: Upload results
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: 'trivy-image.sarif'
+          category: trivy-image-${{ matrix.service }}-${{ matrix.tag }}
