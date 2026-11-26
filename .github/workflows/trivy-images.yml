@@ -48,10 +48,12 @@ jobs:
     steps:
       # For .trivyignore, which Trivy reads from the working directory.
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Scan the image
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: 'image'
           image-ref: ${{ env.IMAGE }}
@@ -63,7 +65,7 @@ jobs:
           output: 'trivy-image.sarif'
 
       - name: Upload results
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@915412ff23e8b7659517e607487dbeae018f2934 # v4.39.5
         with:
           sarif_file: 'trivy-image.sarif'
           category: trivy-image-${{ matrix.service }}-${{ matrix.tag }}

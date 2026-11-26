@@ -1,0 +1,48 @@
+name: Workflow Lint
+
+# Checks the workflows for mistakes (actionlint) and for security problems such as
+# unpinned actions, broad permissions and template injection (zizmor).
+on:
+  push:
+    branches: [ main ]
+    paths: [ '.github/workflows/**' ]
+  pull_request:
+    paths: [ '.github/workflows/**' ]
+
+permissions:
+  contents: read
+
+jobs:
+  actionlint:
+    name: actionlint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The image includes shellcheck, which checks the run: scripts too.
+      - name: Run actionlint
+        run: |
+          docker run --rm -v "$PWD:/repo" -w /repo \
+            rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667 \
+            -color
+
+  zizmor:
+    name: zizmor
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The token lets zizmor check pinned commits and known vulnerable actions.
+      - name: Run zizmor
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          docker run --rm -v "$PWD:/repo:ro" -w /repo -e GH_TOKEN \
+            ghcr.io/zizmorcore/zizmor:1.33.1@sha256:ecd3ffe6158de1322e05a044ed43749bee12b1dccb7e1a7859bc6ac4b2a1c516 \
+            --format github .github/workflows

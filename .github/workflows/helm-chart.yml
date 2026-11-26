@@ -7,6 +7,9 @@ on:
   pull_request:
     paths: [ 'charts/**', '.github/workflows/helm-chart.yml' ]
 
+permissions:
+  contents: read
+
 jobs:
   render:
     name: Lint and render
@@ -21,7 +24,9 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       # Helm is preinstalled on the runner.
       - name: Fetch chart dependencies
@@ -30,10 +35,19 @@ jobs:
           helm dependency build "$CHART"
 
       - name: Lint
-        run: helm lint "$CHART" -f "$CHART/values-example.yaml" $SECRETS
+        run: |
+          # SECRETS holds several --set flags and is split into words on purpose.
+          # shellcheck disable=SC2086
+          helm lint "$CHART" -f "$CHART/values-example.yaml" $SECRETS
 
       - name: Render example values
-        run: helm template ci "$CHART" -f "$CHART/values-example.yaml" $SECRETS > /dev/null
+        run: |
+          # SECRETS holds several --set flags and is split into words on purpose.
+          # shellcheck disable=SC2086
+          helm template ci "$CHART" -f "$CHART/values-example.yaml" $SECRETS > /dev/null
 
       - name: Render default values
-        run: helm template ci "$CHART" --set global.domain=example.com $SECRETS > /dev/null
+        run: |
+          # SECRETS holds several --set flags and is split into words on purpose.
+          # shellcheck disable=SC2086
+          helm template ci "$CHART" --set global.domain=example.com $SECRETS > /dev/null
