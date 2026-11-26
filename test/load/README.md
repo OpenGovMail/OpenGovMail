@@ -90,7 +90,7 @@ Then open your browser to `http://localhost:8089` and configure:
 
 ### Headless Mode (Automated)
 
-Run Locust in headless mode with predefined parameters (same as GitHub workflow):
+Run Locust in headless mode with predefined parameters:
 
 ```bash
 locust \
