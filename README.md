@@ -4,13 +4,14 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 [![CI](https://img.shields.io/github/actions/workflow/status/OpenGovMail/OpenGovMail/build-and-push-images.yml)](https://github.com/OpenGovMail/OpenGovMail/actions/workflows/build-and-push-images.yml)
 [![Security Scan](https://img.shields.io/github/actions/workflow/status/OpenGovMail/OpenGovMail/trivy-fs.yml?label=security)](https://github.com/OpenGovMail/OpenGovMail/actions/workflows/trivy-fs.yml)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/16893/badge)](https://www.bestpractices.dev/projects/16893)
 [![Last Commit](https://img.shields.io/github/last-commit/OpenGovMail/OpenGovMail)](https://github.com/OpenGovMail/OpenGovMail/commits/main)
 [![Slack](https://img.shields.io/badge/Slack-join%20chat-4A154B?logo=slack&logoColor=white)](https://join.slack.com/t/lsflk/shared_invite/zt-4ddz9zqnn-8lnG12b9Ty1Pclnx_hdIwA)
 
 <p align="center">
   <a href="#project-description">Description</a> •
+  <a href="#why-opengovmail">Why OpenGovMail?</a> •
   <a href="#who-this-project-is-for">Who it's for</a> •
-  <a href="#key-features">Key features</a> •
   <a href="#project-dependencies">Dependencies</a> •
   <a href="#instructions-for-using-opengovmail">Using OpenGovMail</a> •
   <a href="#contributing-guidelines">Contributing</a> •
@@ -27,32 +28,25 @@ OpenGovMail runs on your own Kubernetes cluster from one Helm chart, so mail, fi
 
 [Overview of the architecture](docs/concepts/architecture.md) shows how the parts fit together.
 
+## Why OpenGovMail?
+
+OpenGovMail uses the standard email architecture, so it works with existing mail apps and any other mail server. Unlike hosted services:
+
+- Mail, Matrix chat, storage and accounts run in one installation on servers you control, so data stays with you by design, not by contract.
+- Every account lives in [ThunderID](https://github.com/thunder-id/thunderid), which checks every sign-in and delivery. One account covers mail, chat, files and calendars, so one change applies everywhere when someone joins, moves or leaves.
+- Mail follows the organization units, groups and roles in ThunderID: a unit can have its own mail domain, a group address reaches its current members, and each role has its own address.
+- A role address such as `director@` needs no shared password. Each holder opens it with their own sign-in, in mail apps that sign in through ThunderID, so it passes to a successor or stand-in with the role.
+- Each part of a message, such as an attachment, is stored once however many people receive it, and each mailbox has its own database.
+- Connections use TLS, mail is authenticated with SPF, DKIM and DMARC, and Rspamd filters spam and malware through a ClamAV server you run.
+- It runs as standard containers from one Helm chart, built on Postfix, Rspamd, SeaweedFS and ThunderID plus Raven, the mail server from the Lanka Software Foundation.
+
+The [complete feature list](docs/FEATURE_LIST.md) shows which features are done and which are planned.
+
 ## Who this project is for
 
 - Governments, public bodies and other organizations that want to run their own email instead of renting it.
 - System administrators who install and run it. You should be comfortable with Linux, DNS and basic Kubernetes.
 - Developers who want to change or extend it. Start with [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## Key features
-
-| Feature | Status |
-|---------|--------|
-| No licence fees. You pay only for the servers it runs on. | Completed |
-| Runs on modest hardware: 4 GB of memory for email. | Completed |
-| Mail, attachments and accounts stay on your own servers. | Completed |
-| Attachments are kept in object storage, apart from the mailboxes. | Completed |
-| Group addresses deliver to every member of a group. | Completed |
-| Role addresses, such as `director@`, belong to the organization rather than a person. | Completed |
-| Accounts come from ThunderID, either the bundled one or one you already run. | Completed |
-| Spam filtering with Rspamd, turned on in the Helm values. | Completed |
-| Calendars, shared drives, document editing, video meetings and chat, each turned on separately. | Completed |
-| Malware scanning through Rspamd, using a ClamAV server you run. | Completed |
-| Configurable backups. | Planned |
-| Email workflows that route a message through set steps, with tracking. | Planned |
-| A native email client with IMAP and JMAP support. | Planned |
-| Expiry dates and retention policies for email. | Planned |
-
-**[View Complete Feature List →](docs/FEATURE_LIST.md)**
 
 ## Project dependencies
 
