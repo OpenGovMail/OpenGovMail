@@ -1,0 +1,55 @@
+# Weekly version updates for the workflows, the image base images and the
+# chart's remote dependencies. Minor and patch updates come grouped, one pull
+# request per ecosystem. Major updates come one by one, because they can break.
+# Security updates are turned on in the repository settings and don't wait for
+# the schedule or the cooldown.
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    # A new release waits a week, so a compromised or broken one is usually
+    # found and pulled first.
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: ci
+      include: scope
+    groups:
+      actions:
+        update-types: [minor, patch]
+
+  # The base images of the images CI builds and publishes.
+  - package-ecosystem: docker
+    directories:
+      - /services/*
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      base-images:
+        update-types: [minor, patch]
+
+  # The remote dependencies in Chart.yaml: Nextcloud and ThunderID. The local
+  # subcharts use file:// and have nothing to update.
+  - package-ecosystem: helm
+    directory: /charts/opengovmail
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      charts:
+        update-types: [minor, patch]
