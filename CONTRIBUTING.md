@@ -174,6 +174,12 @@ When a scan finds a vulnerability:
 
 To report a vulnerability in OpenGovMail's own code, follow [SECURITY.md](SECURITY.md) instead of opening an issue.
 
+### Dependency updates
+
+Every Monday, Dependabot opens pull requests that update the GitHub Actions in the workflows, the base images of the Dockerfiles under `services/`, and the Nextcloud and ThunderID charts. Minor and patch updates come grouped, one pull request for each kind. Major updates come one at a time. Dependabot waits a week after a release before it proposes it. Security updates come when a fix is published.
+
+Review a Dependabot pull request like any other. Check that CI passes and read the release notes, especially for a major update or a chart update.
+
 ### Text formats
 
 Documentation is Markdown, and diagrams are [Mermaid](https://mermaid.js.org/) blocks inside it, so GitHub renders them.
