@@ -5,7 +5,7 @@ Rspamd spam/malware filtering engine with antivirus (ClamAV), Bayes classifier, 
 ## Dependencies
 
 This chart requires:
-- Redis: for learning/caching backend
+- Valkey: for learning/caching backend
 - Unbound: for DNS queries
 - ClamAV: for virus scanning (optional but recommended)
 
@@ -15,7 +15,7 @@ Basic installation with all dependencies:
 
 ```bash
 helm upgrade --install opengovmail ./charts/opengovmail \
-  --set redis.enabled=true \
+  --set valkey.enabled=true \
   --set unbound.enabled=true \
   --set rspamd.enabled=true \
   --set-string 'rspamd.webui.password=$2$...'   # hash from `rspamadm pw`, see Web UI Access
@@ -32,8 +32,8 @@ Key values:
 | `image.tag` | string | `4.1.1` | Image tag |
 | `persistence.enabled` | bool | `true` | Enable persistent volume for state |
 | `persistence.size` | string | `1Gi` | Persistent volume size |
-| `dependencies.redis.host` | string | `opengovmail-redis` | Redis service hostname |
-| `dependencies.redis.port` | int | `6379` | Redis port |
+| `dependencies.valkey.host` | string | `opengovmail-valkey` | Valkey service hostname |
+| `dependencies.valkey.port` | int | `6379` | Valkey port |
 | `dependencies.unbound.host` | string | `opengovmail-unbound` | Unbound DNS hostname |
 | `dependencies.unbound.port` | int | `53` | Unbound DNS port |
 | `dependencies.clamav.host` | string | `clamav-server` | ClamAV service hostname |
@@ -43,7 +43,7 @@ Key values:
 | `modules.antivirus.enabled` | bool | `true` | Enable antivirus scanning |
 | `modules.antivirus.clamav_action` | string | `add_header` | Action on virus: add_header, reject, discard |
 | `modules.classifier_bayes.enabled` | bool | `true` | Enable Bayes spam classifier |
-| `modules.classifier_bayes.backend` | string | `redis` | Backend for classifier storage |
+| `modules.classifier_bayes.backend` | string | `redis` | Backend for classifier storage. `redis` is Rspamd's name for the Redis protocol, which Valkey speaks |
 | `modules.metrics_exporter.enabled` | bool | `true` | Enable Prometheus metrics export |
 | `service.milter.port` | int | `11332` | SMTP milter port |
 | `service.webui.port` | int | `11334` | Web UI port |
@@ -57,7 +57,7 @@ For custom dependency endpoints:
 ```bash
 helm upgrade --install opengovmail ./charts/opengovmail \
   --set rspamd.enabled=true \
-  --set 'rspamd.dependencies.redis.host=custom-redis' \
+  --set 'rspamd.dependencies.valkey.host=custom-valkey' \
   --set 'rspamd.dependencies.unbound.host=custom-unbound' \
   --set 'rspamd.dependencies.clamav.host=external-clamav'
 ```
@@ -94,13 +94,13 @@ kubectl exec -n mail -it <postfix-pod> -- nc -zv opengovmail-rspamd 11332
 ## Init Checks
 
 If `dependencies.strictInitChecks=true`, rspamd will not start until:
-- Redis is reachable on configured host:port
+- Valkey is reachable on configured host:port
 - Unbound DNS is responding on configured host:port
 
 If init checks fail, inspect pod logs:
 
 ```bash
-kubectl logs -n mail <rspamd-pod> -c check-redis
+kubectl logs -n mail <rspamd-pod> -c check-valkey
 kubectl logs -n mail <rspamd-pod> -c check-unbound
 ```
 
@@ -110,4 +110,4 @@ Rspamd state (learning data, UCL files, ML models) is stored in `/var/lib/rspamd
 
 ## Scaling
 
-v1 supports single replica only (`replicaCount: 1`). Multi-replica support requires shared Redis + distributed learning (future scope).
+v1 supports single replica only (`replicaCount: 1`). Multi-replica support requires shared Valkey + distributed learning (future scope).

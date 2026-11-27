@@ -87,7 +87,7 @@ Figure 2: Inbound email flow
 ## Use cases
 
 - An organization running mail only installs the chart with its defaults: Postfix, OpenDKIM, Raven, ThunderID and SeaweedFS.
-- An organization that wants spam filtering turns on Rspamd, with Redis for its storage and Unbound as its DNS resolver.
+- An organization that wants spam filtering turns on Rspamd, with Valkey for its storage and Unbound as its DNS resolver.
 - An organization that wants calendars, files, document editing and meetings turns on Nextcloud, which brings Collabora and Talk. Chat adds Tuwunel, a Matrix server, and LiveKit for its calls. All of them sign users in through ThunderID. See [Add the collaboration services](../how-to/enable-collaboration.md).
 - An organization that already runs ThunderID points the chart at it with `global.thunder.url` instead of installing the bundled one.
 

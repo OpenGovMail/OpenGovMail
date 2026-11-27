@@ -24,8 +24,8 @@ These are on by default unless the table says otherwise.
 | [ThunderID](https://github.com/thunder-id/thunderid) | 1.0.2 | Users, groups, organization units and sign-in | `thunderid.enabled` |
 | [SeaweedFS](https://github.com/seaweedfs/seaweedfs) | 4.51 | S3 object storage for attachments and files | `seaweedfs.enabled` |
 | [Rspamd](https://rspamd.com/) | 4.1.1 | Spam filtering. Off by default. | `rspamd.enabled` |
-| [Redis](https://redis.io/) | 7 | Rspamd's storage. Off by default. | `redis.enabled` |
 | [Unbound](https://nlnetlabs.nl/projects/unbound/) | latest | DNS resolver for Rspamd's blocklist lookups. Off by default. | `unbound.enabled` |
+| [Valkey](https://valkey.io/) | 9.1 | Rspamd's storage. Off by default. | `valkey.enabled` |
 
 ## Collaboration
 
@@ -40,7 +40,7 @@ By default, all these components are off. Read [Add the collaboration services](
 | [LiveKit](https://livekit.io/) | 1.13.11 | Media server for Matrix calls |
 | [lk-jwt-service](https://github.com/element-hq/lk-jwt-service) | 0.10.0 | Gives signed-in Matrix users a LiveKit token |
 | [PostgreSQL](https://www.postgresql.org/) | 16 | Nextcloud's database |
-| [Redis](https://redis.io/) | 7 | Nextcloud's cache |
+| [Valkey](https://valkey.io/) | 9.1 | Nextcloud's cache |
 
 ## Where versions are set
 
@@ -48,5 +48,5 @@ By default, all these components are off. Read [Add the collaboration services](
 |---|---|
 | Chart, Postfix and OpenDKIM images | [Chart.yaml](../../charts/opengovmail/Chart.yaml), and `image.tag` in each subchart's `values.yaml` |
 | ThunderID and Nextcloud charts | `dependencies` in [Chart.yaml](../../charts/opengovmail/Chart.yaml) |
-| Raven, SeaweedFS, Rspamd, Redis, Unbound, Tuwunel | `image.tag` or `appVersion` in [charts/opengovmail/charts/](../../charts/opengovmail/charts) |
+| Raven, SeaweedFS, Rspamd, Valkey, Unbound, Tuwunel | `image.tag` or `appVersion` in [charts/opengovmail/charts/](../../charts/opengovmail/charts) |
 | Collabora, coturn, PostgreSQL, LiveKit, lk-jwt-service | [values.yaml](../../charts/opengovmail/values.yaml) |

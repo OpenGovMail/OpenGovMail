@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Valkey replaces Redis. Rename `redis` to `valkey` in your values.
+
 ### Fixed
 
 - `helm test` for OpenDKIM connects to the `opendkim` Service. It used the release-prefixed name, which no Service has, so the test always failed ([#453](https://github.com/OpenGovMail/OpenGovMail/pull/453)).

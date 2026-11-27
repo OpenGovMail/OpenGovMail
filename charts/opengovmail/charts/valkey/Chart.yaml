@@ -1,11 +1,11 @@
 apiVersion: v2
-name: redis
-description: Redis in-memory data store for rspamd backend
+name: valkey
+description: Valkey in-memory data store for rspamd backend
 type: application
 version: 0.1.0
-appVersion: "7-alpine"
+appVersion: "9.1-alpine"
 keywords:
-  - redis
+  - valkey
   - cache
   - rspamd
 maintainers:

@@ -101,10 +101,10 @@ opendkim:
 postfix:
   enabled: true
 
-redis:
+unbound:
   enabled: false
 
-unbound:
+valkey:
   enabled: false
 
 rspamd:
@@ -521,7 +521,7 @@ nextcloud:
 
   externalRedis:
     enabled: true
-    host: "nextcloud-redis"
+    host: "nextcloud-valkey"
     port: "6379"
 
   # Nextcloud needs background jobs every 5 minutes; the compose setup never had them.
@@ -544,7 +544,7 @@ nextcloud:
       cert-manager.io/cluster-issuer: le-prod
       traefik.ingress.kubernetes.io/router.entrypoints: websecure
 
-# Postgres and Redis for Nextcloud, rendered by templates/nextcloud-*.yaml.
+# Postgres and Valkey for Nextcloud, rendered by templates/nextcloud-*.yaml.
 # Separate from the nextcloud block because that one is the upstream chart's scope.
 nextcloudDeps:
   # Release-independent so nothing assumes the release is called opengovmail.
@@ -634,11 +634,11 @@ nextcloudDeps:
       requests: {cpu: 25m, memory: 32Mi}
       limits: {cpu: 200m, memory: 64Mi}
 
-  redis:
-    serviceName: nextcloud-redis
+  valkey:
+    serviceName: nextcloud-valkey
     image:
-      repository: redis
-      tag: "7-alpine"
+      repository: valkey/valkey
+      tag: "9.1-alpine"
       pullPolicy: IfNotPresent
     resources:
       requests:

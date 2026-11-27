@@ -31,8 +31,8 @@ Give secrets on the command line. Do not put them in the values file. Read [Secr
 | Field | Description | Example |
 |---|---|---|
 | `rspamd.enabled` | Run Rspamd and check incoming mail with it. | `false` |
-| `redis.enabled` | Run Redis for Rspamd. | `false` |
 | `unbound.enabled` | Run Unbound, a DNS resolver for Rspamd's blocklist lookups. | `false` |
+| `valkey.enabled` | Run Valkey, Rspamd's storage. | `false` |
 
 ## Identity
 

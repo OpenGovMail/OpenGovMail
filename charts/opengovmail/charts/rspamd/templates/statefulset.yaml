@@ -33,27 +33,27 @@ spec:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       {{- if .Values.dependencies.strictInitChecks }}
       initContainers:
-        - name: check-redis
+        - name: check-valkey
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command:
             - /bin/bash
             - -c
             - |
-              echo "Checking Redis connectivity at {{ .Values.dependencies.redis.host }}:{{ .Values.dependencies.redis.port }}"
+              echo "Checking Valkey connectivity at {{ .Values.dependencies.valkey.host }}:{{ .Values.dependencies.valkey.port }}"
               timeout_sec={{ .Values.dependencies.initCheckTimeout }}
               interval=5
               elapsed=0
               while [ $elapsed -lt $timeout_sec ]; do
-                if timeout 2 bash -c "echo > /dev/tcp/{{ .Values.dependencies.redis.host }}/{{ .Values.dependencies.redis.port }}" >/dev/null 2>&1; then
-                  echo "Redis is reachable!"
+                if timeout 2 bash -c "echo > /dev/tcp/{{ .Values.dependencies.valkey.host }}/{{ .Values.dependencies.valkey.port }}" >/dev/null 2>&1; then
+                  echo "Valkey is reachable!"
                   exit 0
                 fi
-                echo "Waiting for Redis... ($elapsed/$timeout_sec seconds)"
+                echo "Waiting for Valkey... ($elapsed/$timeout_sec seconds)"
                 sleep $interval
                 elapsed=$((elapsed + interval))
               done
-              echo "ERROR: Redis not reachable after ${timeout_sec}s"
+              echo "ERROR: Valkey not reachable after ${timeout_sec}s"
               exit 1
           securityContext:
             allowPrivilegeEscalation: false

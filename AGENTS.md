@@ -4,7 +4,7 @@ Instructions for AI coding agents working in this repository. People should star
 
 ## Project overview
 
-OpenGovMail is a self-hosted email and collaboration platform, installed with one Helm chart on Kubernetes. The chart brings together Postfix, OpenDKIM, Rspamd, Unbound, Redis, SeaweedFS, Raven (the mail store), Tuwunel (Matrix chat), Nextcloud (calendars, files and Talk) and ThunderID (the identity provider).
+OpenGovMail is a self-hosted email and collaboration platform, installed with one Helm chart on Kubernetes. The chart brings together Postfix, OpenDKIM, Rspamd, Unbound, Valkey, SeaweedFS, Raven (the mail store), Tuwunel (Matrix chat), Nextcloud (calendars, files and Talk) and ThunderID (the identity provider).
 
 Raven lives in its own repository, [OpenGovMail/raven](https://github.com/OpenGovMail/raven). Changes to the mail store belong there, not here.
 
@@ -15,7 +15,7 @@ Raven lives in its own repository, [OpenGovMail/raven](https://github.com/OpenGo
 | Path | What it holds |
 |---|---|
 | `charts/opengovmail/` | The umbrella Helm chart: `Chart.yaml`, `values.yaml`, `values-example.yaml` and templates |
-| `charts/opengovmail/charts/<name>/` | Local subcharts (opendkim, postfix, redis, unbound, rspamd, seaweedfs, raven, tuwunel) |
+| `charts/opengovmail/charts/<name>/` | Local subcharts (opendkim, postfix, valkey, unbound, rspamd, seaweedfs, raven, tuwunel) |
 | `services/smtp/`, `services/dkim/`, `services/certbot/` | Dockerfiles for the images CI publishes |
 | `infra/` | Cluster setup applied once, such as the cert-manager issuers |
 | `docs/` | Documentation, organized by topic type (see [docs/style-guide.md](docs/style-guide.md)) |
