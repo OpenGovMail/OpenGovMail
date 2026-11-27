@@ -7,7 +7,18 @@ on:
     # A release tag (v0.4.0) builds every image as 0.4.0. Not v.0.4.0: semver can't parse it.
     tags:
       - 'v[0-9]*'
+  # Pull requests build the changed images to catch a broken Dockerfile before
+  # it merges, but never log in or push.
+  pull_request:
+    paths:
+      - 'services/**'
+      - '.github/workflows/build-and-push-images.yml'
   workflow_dispatch:
+
+# A new push to a pull request cancels its build in progress.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   REGISTRY: ghcr.io
@@ -17,6 +28,10 @@ jobs:
   detect-changes:
     runs-on: ubuntu-latest
     if: github.repository == 'OpenGovMail/OpenGovMail'
+    permissions:
+      contents: read
+      # paths-filter lists a pull request's files through the API.
+      pull-requests: read
     outputs:
       smtp: ${{ steps.changes.outputs.smtp }}
       imap: ${{ steps.changes.outputs.imap }}
@@ -37,14 +52,18 @@ jobs:
           filters: |
             smtp:
               - 'services/smtp/**'
+              - '.github/workflows/build-and-push-images.yml'
             imap:
               - 'services/imap/**'
             dkim:
               - 'services/dkim/**'
+              - '.github/workflows/build-and-push-images.yml'
             certbot:
               - 'services/certbot/**'
+              - '.github/workflows/build-and-push-images.yml'
             metadata:
               - 'services/metadata-service/**'
+              - '.github/workflows/build-and-push-images.yml'
 
   build-smtp:
     needs: detect-changes
@@ -61,6 +80,7 @@ jobs:
         uses: docker/setup-buildx-action@v4
 
       - name: Log in to GitHub Container Registry
+        if: github.event_name != 'pull_request'
         uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
@@ -76,7 +96,8 @@ jobs:
           flavor: latest=false
           tags: |
             type=ref,event=branch
-            type=sha,prefix={{branch}}-,enable=${{ github.ref_type == 'branch' }}
+            type=sha,prefix={{branch}}-,enable=${{ github.ref_type == 'branch' && github.event_name != 'pull_request' }}
+            type=ref,event=pr
             type=semver,pattern={{version}}
             type=raw,value=latest,enable={{is_default_branch}}
 
@@ -85,11 +106,12 @@ jobs:
         with:
           context: services
           file: services/smtp/Dockerfile
-          push: true
+          push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Only main and tags write the cache, so pull requests don't evict it.
+          cache-to: ${{ github.event_name != 'pull_request' && 'type=gha,mode=max' || '' }}
 
   build-dkim:
     needs: detect-changes
@@ -106,6 +128,7 @@ jobs:
         uses: docker/setup-buildx-action@v4
 
       - name: Log in to GitHub Container Registry
+        if: github.event_name != 'pull_request'
         uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
@@ -121,7 +144,8 @@ jobs:
           flavor: latest=false
           tags: |
             type=ref,event=branch
-            type=sha,prefix={{branch}}-,enable=${{ github.ref_type == 'branch' }}
+            type=sha,prefix={{branch}}-,enable=${{ github.ref_type == 'branch' && github.event_name != 'pull_request' }}
+            type=ref,event=pr
             type=semver,pattern={{version}}
             type=raw,value=latest,enable={{is_default_branch}}
 
@@ -130,11 +154,12 @@ jobs:
         with:
           context: services
           file: services/dkim/Dockerfile
-          push: true
+          push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Only main and tags write the cache, so pull requests don't evict it.
+          cache-to: ${{ github.event_name != 'pull_request' && 'type=gha,mode=max' || '' }}
 
   build-certbot:
     needs: detect-changes
@@ -151,6 +176,7 @@ jobs:
         uses: docker/setup-buildx-action@v4
 
       - name: Log in to GitHub Container Registry
+        if: github.event_name != 'pull_request'
         uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
@@ -166,7 +192,8 @@ jobs:
           flavor: latest=false
           tags: |
             type=ref,event=branch
-            type=sha,prefix={{branch}}-,enable=${{ github.ref_type == 'branch' }}
+            type=sha,prefix={{branch}}-,enable=${{ github.ref_type == 'branch' && github.event_name != 'pull_request' }}
+            type=ref,event=pr
             type=semver,pattern={{version}}
             type=raw,value=latest,enable={{is_default_branch}}
 
@@ -175,11 +202,12 @@ jobs:
         with:
           context: services/certbot
           file: services/certbot/Dockerfile
-          push: true
+          push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Only main and tags write the cache, so pull requests don't evict it.
+          cache-to: ${{ github.event_name != 'pull_request' && 'type=gha,mode=max' || '' }}
 
   build-metadata:
     needs: detect-changes
@@ -196,6 +224,7 @@ jobs:
         uses: docker/setup-buildx-action@v4
 
       - name: Log in to GitHub Container Registry
+        if: github.event_name != 'pull_request'
         uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
@@ -211,7 +240,8 @@ jobs:
           flavor: latest=false
           tags: |
             type=ref,event=branch
-            type=sha,prefix={{branch}}-,enable=${{ github.ref_type == 'branch' }}
+            type=sha,prefix={{branch}}-,enable=${{ github.ref_type == 'branch' && github.event_name != 'pull_request' }}
+            type=ref,event=pr
             type=semver,pattern={{version}}
             type=raw,value=latest,enable={{is_default_branch}}
 
@@ -220,8 +250,9 @@ jobs:
         with:
           context: services/metadata-service
           file: services/metadata-service/Dockerfile
-          push: true
+          push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Only main and tags write the cache, so pull requests don't evict it.
+          cache-to: ${{ github.event_name != 'pull_request' && 'type=gha,mode=max' || '' }}
