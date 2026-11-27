@@ -39,14 +39,15 @@ jobs:
       services: ${{ steps.services.outputs.list }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           fetch-depth: 0
 
       # Each filter is named after the image it builds. A change to this workflow
       # rebuilds every image, so the change is tested.
       - name: Detect changed files
-        uses: dorny/paths-filter@v4
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         if: github.ref_type == 'branch'
         id: changes
         with:
@@ -94,14 +95,16 @@ jobs:
       SCAN_TAG: local/opengovmail-${{ matrix.service }}:scan
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Log in to GitHub Container Registry
         if: github.event_name != 'pull_request'
-        uses: docker/login-action@v4
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -109,7 +112,7 @@ jobs:
 
       - name: Extract metadata (tags, labels)
         id: meta
-        uses: docker/metadata-action@v6
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.service }}
           # latest follows main only, not every release tag.
@@ -124,7 +127,7 @@ jobs:
       # Build into the local Docker daemon first, so the image is scanned before
       # anything is pushed.
       - name: Build Docker image
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: ${{ env.CONTEXT }}
           file: services/${{ matrix.service }}/Dockerfile
@@ -136,7 +139,7 @@ jobs:
       # Fails on a CRITICAL vulnerability that has a fix, which stops the push.
       # Accept a finding by adding it to .trivyignore with a reason and an expiry date.
       - name: Scan the image
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: 'image'
           image-ref: ${{ env.SCAN_TAG }}
@@ -150,7 +153,7 @@ jobs:
       # requests don't evict it.
       - name: Push Docker image
         if: github.event_name != 'pull_request'
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: ${{ env.CONTEXT }}
           file: services/${{ matrix.service }}/Dockerfile

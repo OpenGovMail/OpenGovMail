@@ -47,3 +47,5 @@ services/docker-compose.override.yml
 # Helm dependency-build artifacts (regenerate via `helm dependency update`)
 charts/opengovmail/Chart.lock
 charts/opengovmail/charts/*.tgz
+# Cloned by test/security/tls/tls_security_test.sh
+test/security/tls/testssl.sh/
