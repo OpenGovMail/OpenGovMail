@@ -7,8 +7,8 @@ on:
     # A release tag (v0.4.0) builds every image as 0.4.0. Not v.0.4.0: semver can't parse it.
     tags:
       - 'v[0-9]*'
-  # Pull requests build the changed images to catch a broken Dockerfile before
-  # it merges, but never log in or push.
+  # Pull requests build and scan the changed images to catch a broken Dockerfile
+  # or a vulnerable image before it merges, but never log in or push.
   pull_request:
     paths:
       - 'services/**'
@@ -19,6 +19,9 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
 
 env:
   REGISTRY: ghcr.io
@@ -33,17 +36,15 @@ jobs:
       # paths-filter lists a pull request's files through the API.
       pull-requests: read
     outputs:
-      smtp: ${{ steps.changes.outputs.smtp }}
-      imap: ${{ steps.changes.outputs.imap }}
-      dkim: ${{ steps.changes.outputs.dkim }}
-      certbot: ${{ steps.changes.outputs.certbot }}
-      metadata: ${{ steps.changes.outputs.metadata }}
+      services: ${{ steps.services.outputs.list }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
+      # Each filter is named after the image it builds. A change to this workflow
+      # rebuilds every image, so the change is tested.
       - name: Detect changed files
         uses: dorny/paths-filter@v4
         if: github.ref_type == 'branch'
@@ -53,25 +54,44 @@ jobs:
             smtp:
               - 'services/smtp/**'
               - '.github/workflows/build-and-push-images.yml'
-            imap:
-              - 'services/imap/**'
             dkim:
               - 'services/dkim/**'
               - '.github/workflows/build-and-push-images.yml'
             certbot:
               - 'services/certbot/**'
               - '.github/workflows/build-and-push-images.yml'
-            metadata:
+            metadata-service:
               - 'services/metadata-service/**'
               - '.github/workflows/build-and-push-images.yml'
 
-  build-smtp:
+      # A release tag builds every image. Otherwise, only the changed ones.
+      - name: List the images to build
+        id: services
+        env:
+          CHANGED: ${{ steps.changes.outputs.changes }}
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            echo 'list=["smtp","dkim","certbot","metadata-service"]' >> "$GITHUB_OUTPUT"
+          else
+            echo "list=${CHANGED:-[]}" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    name: build-${{ matrix.service }}
     needs: detect-changes
-    if: github.ref_type == 'tag' || needs.detect-changes.outputs.smtp == 'true'
+    if: needs.detect-changes.outputs.services != '' && needs.detect-changes.outputs.services != '[]'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJSON(needs.detect-changes.outputs.services) }}
+    env:
+      # smtp and dkim build from services/ and copy from their own folder in it.
+      CONTEXT: ${{ (matrix.service == 'smtp' || matrix.service == 'dkim') && 'services' || format('services/{0}', matrix.service) }}
+      SCAN_TAG: local/opengovmail-${{ matrix.service }}:scan
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -91,7 +111,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v6
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-smtp
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.service }}
           # latest follows main only, not every release tag.
           flavor: latest=false
           tags: |
@@ -101,158 +121,41 @@ jobs:
             type=semver,pattern={{version}}
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Build and push Docker image
+      # Build into the local Docker daemon first, so the image is scanned before
+      # anything is pushed.
+      - name: Build Docker image
         uses: docker/build-push-action@v7
         with:
-          context: services
-          file: services/smtp/Dockerfile
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
+          context: ${{ env.CONTEXT }}
+          file: services/${{ matrix.service }}/Dockerfile
+          load: true
+          tags: ${{ env.SCAN_TAG }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
-          # Only main and tags write the cache, so pull requests don't evict it.
-          cache-to: ${{ github.event_name != 'pull_request' && 'type=gha,mode=max' || '' }}
 
-  build-dkim:
-    needs: detect-changes
-    if: github.ref_type == 'tag' || needs.detect-changes.outputs.dkim == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
+      # Fails on a CRITICAL vulnerability that has a fix, which stops the push.
+      # Accept a finding by adding it to .trivyignore with a reason and an expiry date.
+      - name: Scan the image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: 'image'
+          image-ref: ${{ env.SCAN_TAG }}
+          scanners: 'vuln'
+          ignore-unfixed: true
+          severity: 'CRITICAL'
+          format: 'table'
+          exit-code: '1'
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
-
-      - name: Log in to GitHub Container Registry
+      # Reuses the layers built above. Only main and tags write the cache, so pull
+      # requests don't evict it.
+      - name: Push Docker image
         if: github.event_name != 'pull_request'
-        uses: docker/login-action@v4
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata (tags, labels)
-        id: meta
-        uses: docker/metadata-action@v6
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-dkim
-          # latest follows main only, not every release tag.
-          flavor: latest=false
-          tags: |
-            type=ref,event=branch
-            type=sha,prefix={{branch}}-,enable=${{ github.ref_type == 'branch' && github.event_name != 'pull_request' }}
-            type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Build and push Docker image
         uses: docker/build-push-action@v7
         with:
-          context: services
-          file: services/dkim/Dockerfile
-          push: ${{ github.event_name != 'pull_request' }}
+          context: ${{ env.CONTEXT }}
+          file: services/${{ matrix.service }}/Dockerfile
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
-          # Only main and tags write the cache, so pull requests don't evict it.
-          cache-to: ${{ github.event_name != 'pull_request' && 'type=gha,mode=max' || '' }}
-
-  build-certbot:
-    needs: detect-changes
-    if: github.ref_type == 'tag' || needs.detect-changes.outputs.certbot == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
-
-      - name: Log in to GitHub Container Registry
-        if: github.event_name != 'pull_request'
-        uses: docker/login-action@v4
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata (tags, labels)
-        id: meta
-        uses: docker/metadata-action@v6
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-certbot
-          # latest follows main only, not every release tag.
-          flavor: latest=false
-          tags: |
-            type=ref,event=branch
-            type=sha,prefix={{branch}}-,enable=${{ github.ref_type == 'branch' && github.event_name != 'pull_request' }}
-            type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v7
-        with:
-          context: services/certbot
-          file: services/certbot/Dockerfile
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          # Only main and tags write the cache, so pull requests don't evict it.
-          cache-to: ${{ github.event_name != 'pull_request' && 'type=gha,mode=max' || '' }}
-
-  build-metadata:
-    needs: detect-changes
-    if: github.ref_type == 'tag' || needs.detect-changes.outputs.metadata == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
-
-      - name: Log in to GitHub Container Registry
-        if: github.event_name != 'pull_request'
-        uses: docker/login-action@v4
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata (tags, labels)
-        id: meta
-        uses: docker/metadata-action@v6
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-metadata-service
-          # latest follows main only, not every release tag.
-          flavor: latest=false
-          tags: |
-            type=ref,event=branch
-            type=sha,prefix={{branch}}-,enable=${{ github.ref_type == 'branch' && github.event_name != 'pull_request' }}
-            type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v7
-        with:
-          context: services/metadata-service
-          file: services/metadata-service/Dockerfile
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          # Only main and tags write the cache, so pull requests don't evict it.
-          cache-to: ${{ github.event_name != 'pull_request' && 'type=gha,mode=max' || '' }}
+          cache-to: type=gha,mode=max

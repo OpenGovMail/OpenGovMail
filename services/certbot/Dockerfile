@@ -1,5 +1,5 @@
 # Start from the official certbot base image
-FROM certbot/certbot:v5.8.0
+FROM certbot/certbot:v5.10.0
 
 # Switch to the root user to install software
 USER root

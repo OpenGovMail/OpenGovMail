@@ -162,6 +162,18 @@ After it merges, the maintainer tags the merge commit `v<version>` and pushes th
 
 A release with breaking changes says so in the changelog, with the steps users need to upgrade.
 
+### Vulnerabilities in images
+
+CI scans every image it builds with Trivy, on pull requests too. A CRITICAL vulnerability that has a fix fails the build, and the image isn't pushed. Every Monday, the Trivy Image Scan workflow also rescans the published `latest` image and the newest release of each image, and lists what it finds in the Security tab, under Code scanning.
+
+When a scan finds a vulnerability:
+
+1. Rebuild the image on a fixed base. Update the `FROM` tag in the Dockerfile if the fix is in a newer base image. Rebuilding also picks up fixed Debian and Alpine packages.
+2. If the newest release is affected, a maintainer publishes a patch release, as [Releases](#releases) describes, so users can upgrade to a fixed image.
+3. If the vulnerability can't affect OpenGovMail, or has no fix yet, accept it in `.trivyignore`, with the reason, the issue that accepted it and an expiry date.
+
+To report a vulnerability in OpenGovMail's own code, follow [SECURITY.md](SECURITY.md) instead of opening an issue.
+
 ### Text formats
 
 Documentation is Markdown, and diagrams are [Mermaid](https://mermaid.js.org/) blocks inside it, so GitHub renders them.
