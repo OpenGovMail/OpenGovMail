@@ -4,10 +4,14 @@ Runs the ClamAV daemon (clamd) that Rspamd uses to scan incoming mail for viruse
 
 ## Turn it on
 
-ClamAV is off by default. Turn it on together with Rspamd in your values file:
+ClamAV is off by default. Turn it on together with Rspamd in your values file. Rspamd needs Redis and Unbound, and doesn't start without them:
 
 ```yaml
 rspamd:
+  enabled: true
+redis:
+  enabled: true
+unbound:
   enabled: true
 clamav:
   enabled: true
@@ -30,6 +34,8 @@ To run Rspamd without virus scanning, leave `clamav.enabled` off and set `rspamd
 | `resources.limits.memory` | string | `2867Mi` | Memory limit. clamd holds the signatures in memory, and briefly twice that while it reloads them. |
 | `env.noFreshclamd` | bool | `false` | `true` stops freshclam, so signatures are never updated |
 | `service.port` | int | `3310` | clamd TCP port |
+| `networkPolicy.enabled` | bool | `true` | Allow connections to clamd only from the pods in `networkPolicy.clients` and the `helm test` pod |
+| `networkPolicy.clients` | list | `[{app.kubernetes.io/name: rspamd}]` | Pod labels of the pods that can scan. Add your own scanner clients here. |
 | `startupProbe.failureThreshold` | int | `60` | Startup checks, 10 seconds apart, before Kubernetes restarts clamd. The first start downloads about 300 MB of signatures. |
 
 ## Security
@@ -38,6 +44,8 @@ clamd and freshclam run as the image's `clamav` user (UID 100, GID 101), with ev
 
 - A short init container runs as root with only the `CHOWN` capability. It gives the `clamav` user ownership of the signature volume, because the image's entrypoint changes that ownership itself and fails on a volume it doesn't own.
 - `/run/clamav` and `/run/lock` are `emptyDir` volumes, because the entrypoint writes to both and `/run` belongs to root.
+- A NetworkPolicy lets only Rspamd and the `helm test` pod connect to clamd, so other pods can't use its CPU and memory. It needs a network plugin that enforces NetworkPolicies, such as the one in k3s. Outbound traffic isn't restricted, because freshclam downloads signatures over HTTPS.
+- The pods keep the label `app.kubernetes.io/name: clamav` even with `nameOverride`, because Rspamd's NetworkPolicy lets Rspamd connect only to pods with that label.
 
 ## Test it
 

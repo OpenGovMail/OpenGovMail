@@ -51,3 +51,13 @@ jobs:
           # SECRETS holds several --set flags and is split into words on purpose.
           # shellcheck disable=SC2086
           helm template ci "$CHART" --set global.domain=example.com $SECRETS > /dev/null
+
+      # ClamAV is off by default and in the example values, so it gets a case of
+      # its own, with Rspamd and the services Rspamd needs.
+      - name: Render with ClamAV
+        run: |
+          # SECRETS holds several --set flags and is split into words on purpose.
+          # shellcheck disable=SC2086
+          helm template ci "$CHART" -f "$CHART/values-example.yaml" $SECRETS \
+            --set rspamd.enabled=true --set redis.enabled=true \
+            --set unbound.enabled=true --set clamav.enabled=true > /dev/null

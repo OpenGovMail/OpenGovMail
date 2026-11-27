@@ -73,6 +73,14 @@ tolerations: []
 affinity: {}
 
 # Signature database. Keeping it avoids downloading about 300 MB on every restart.
+# Only the pods listed in clients, and this chart's helm test, can connect to
+# clamd. Each entry is a set of pod labels. Rspamd's pods are labelled
+# app.kubernetes.io/name=rspamd.
+networkPolicy:
+  enabled: true
+  clients:
+    - app.kubernetes.io/name: rspamd
+
 persistence:
   enabled: true
   storageClass: ""

@@ -1,0 +1,31 @@
+{{- if .Values.networkPolicy.enabled }}
+# Only Rspamd, and this chart's helm test, can connect to clamd. Scanning is
+# CPU- and memory-heavy, so other pods in the cluster can't use it. Outbound
+# traffic isn't restricted: freshclam downloads signatures over HTTPS.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "clamav.fullname" . }}
+  labels:
+    {{- include "clamav.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "clamav.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        {{- range .Values.networkPolicy.clients }}
+        - podSelector:
+            matchLabels:
+              {{- toYaml . | nindent 14 }}
+        {{- end }}
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: clamav-test
+              app.kubernetes.io/instance: {{ .Release.Name }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.service.targetPort }}
+{{- end }}

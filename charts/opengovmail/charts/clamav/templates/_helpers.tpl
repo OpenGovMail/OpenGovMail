@@ -41,10 +41,11 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 
 {{/*
-Selector labels
+Selector labels. The name label stays "clamav" even with nameOverride, because
+rspamd's NetworkPolicy allows scan connections to pods with that label.
 */}}
 {{- define "clamav.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "clamav.name" . }}
+app.kubernetes.io/name: {{ .Chart.Name }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 

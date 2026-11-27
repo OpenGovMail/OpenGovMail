@@ -3,7 +3,12 @@ kind: Pod
 metadata:
   name: "{{ include "clamav.fullname" . }}-test"
   labels:
-    {{- include "clamav.labels" . | nindent 4 }}
+    helm.sh/chart: {{ include "clamav.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    # Not clamd's name label, which would add this pod to the Service's endpoints.
+    # The NetworkPolicy lets this label in.
+    app.kubernetes.io/name: clamav-test
   annotations:
     "helm.sh/hook": test
 spec:
