@@ -28,6 +28,8 @@ helm template ci "$CHART" --set global.domain=example.com $SECRETS > /dev/null
 
 To read the output of your change, remove `> /dev/null`. Then add `--show-only templates/<file>.yaml`.
 
+CI also installs the chart in a [kind](https://kind.sigs.k8s.io/) cluster and runs `helm test`. It uses `values-example.yaml` and the changes in `test/install/values.yaml`: a self-signed certificate issuer, placeholder secrets, and no Nextcloud or Tuwunel. The check shows that the pods start, that Raven gets a token from ThunderID, and that each service answers on its ports. It does not test sign-in from a mail app or mail delivery, because the cluster has no trusted certificates and no public address. If the check fails, its last step shows the pods, the events and the logs.
+
 ## Put a chart change on the test server
 
 1. Push your branch.

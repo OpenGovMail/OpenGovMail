@@ -1,0 +1,8 @@
+# A self-signed ClusterIssuer for the kind cluster in CI. Let's Encrypt can't reach
+# a cluster on a CI runner, so the chart's Certificates are issued by this instead.
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: ci-selfsigned
+spec:
+  selfSigned: {}

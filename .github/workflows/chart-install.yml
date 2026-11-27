@@ -1,0 +1,144 @@
+name: Chart Install
+
+# Installs the chart in a kind cluster and runs helm test, so problems that only
+# show up at runtime fail here: pods that don't start, wrong Service names and
+# broken helm test hooks.
+on:
+  push:
+    branches: [ main ]
+    paths: [ 'charts/**', 'test/install/**', '.github/workflows/chart-install.yml' ]
+  pull_request:
+    paths: [ 'charts/**', 'test/install/**', '.github/workflows/chart-install.yml' ]
+  workflow_dispatch:
+
+# A new push to a pull request cancels its run in progress.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  install:
+    name: Install in kind
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CHART: charts/opengovmail
+      NAMESPACE: opengovmail
+      # The version the installation guide installs.
+      CERT_MANAGER_VERSION: v1.20.0
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Create a kind cluster
+        uses: helm/kind-action@ea822c7bf1874f08e5a491df991c228edffc3376 # v1.15.2
+        with:
+          cluster_name: opengovmail
+
+      # The chart's Certificates need cert-manager. A self-signed issuer stands in
+      # for Let's Encrypt, which can't reach the runner.
+      - name: Install cert-manager
+        run: |
+          helm install cert-manager oci://quay.io/jetstack/charts/cert-manager \
+            --version "$CERT_MANAGER_VERSION" \
+            --namespace cert-manager \
+            --create-namespace \
+            --set crds.enabled=true \
+            --wait
+          kubectl apply -f test/install/issuer.yaml
+
+      # Raven gets a token from ThunderID on the public name, example.com:8090, and
+      # its socketmap service, which Postfix uses to look up mailboxes, waits for
+      # it. On a real server that name is the node itself. In kind, CoreDNS
+      # answers it with the ThunderID Service instead.
+      - name: Point example.com at ThunderID
+        run: |
+          kubectl get configmap coredns -n kube-system -o jsonpath='{.data.Corefile}' \
+            | sed "s/^\( *\)ready$/\1ready\n\1rewrite name exact example.com thunder-lb.${NAMESPACE}.svc.cluster.local/" \
+            > "$RUNNER_TEMP/Corefile"
+          grep -q 'rewrite name exact example.com' "$RUNNER_TEMP/Corefile"
+          kubectl create configmap coredns -n kube-system --from-file="$RUNNER_TEMP/Corefile" \
+            --dry-run=client -o yaml | kubectl apply -f -
+          kubectl rollout restart deployment coredns -n kube-system
+          kubectl rollout status deployment coredns -n kube-system
+
+      # Helm is preinstalled on the runner.
+      - name: Fetch chart dependencies
+        run: |
+          helm repo add nextcloud https://nextcloud.github.io/helm/
+          helm dependency build "$CHART"
+
+      # Helm deletes a failed hook's pod, such as ThunderID's setup job, before the
+      # last step can read it. This keeps a copy of every pod's logs as it runs.
+      - name: Collect pod logs in the background
+        run: |
+          mkdir -p "$RUNNER_TEMP/pod-logs"
+          # shellcheck disable=SC2016 # The inner script expands its own variables.
+          nohup bash -c '
+            while true; do
+              for pod in $(kubectl get pods -n "$NAMESPACE" -o name 2>/dev/null); do
+                name=${pod#pod/}
+                if kubectl logs "$pod" -n "$NAMESPACE" --all-containers --prefix --tail=300 \
+                    > "$RUNNER_TEMP/pod-logs/$name.tmp" 2>/dev/null; then
+                  mv "$RUNNER_TEMP/pod-logs/$name.tmp" "$RUNNER_TEMP/pod-logs/$name.log"
+                fi
+              done
+              sleep 5
+            done' > /dev/null 2>&1 &
+
+      - name: Install the chart
+        run: |
+          helm install ci "$CHART" \
+            --namespace "$NAMESPACE" \
+            --create-namespace \
+            -f "$CHART/values-example.yaml" \
+            -f test/install/values.yaml \
+            --wait \
+            --timeout 15m
+
+      - name: Run helm test
+        run: helm test ci --namespace "$NAMESPACE" --logs --timeout 5m
+
+      # Enough to debug a failure without a local cluster.
+      - name: Show the cluster state
+        if: failure()
+        run: |
+          echo "::group::Pods"
+          kubectl get pods -A -o wide
+          echo "::endgroup::"
+          echo "::group::Certificates"
+          kubectl get certificates,certificaterequests -n "$NAMESPACE" -o wide || true
+          echo "::endgroup::"
+          echo "::group::Events"
+          kubectl get events -n "$NAMESPACE" --sort-by=.lastTimestamp
+          echo "::endgroup::"
+          # Every pod's logs, because a pod can be Ready while one of its services
+          # is down. A pod that isn't Ready or has restarted is also described.
+          for pod in $(kubectl get pods -n "$NAMESPACE" -o name); do
+            name=${pod#pod/}
+            echo "::group::Pod $name"
+            if kubectl get "$pod" -n "$NAMESPACE" -o json | jq -e '
+                .status.phase != "Succeeded" and (.status.phase != "Running"
+                  or any(.status.containerStatuses[]?; (.ready | not) or .restartCount > 0))' > /dev/null; then
+              kubectl describe "$pod" -n "$NAMESPACE"
+              kubectl logs "$pod" -n "$NAMESPACE" --all-containers --prefix --tail=200 --previous 2>/dev/null || true
+            fi
+            kubectl logs "$pod" -n "$NAMESPACE" --all-containers --prefix --tail=200 || true
+            echo "::endgroup::"
+          done
+          # Pods that no longer exist, such as failed hooks, from the background copy.
+          for file in "$RUNNER_TEMP"/pod-logs/*.log; do
+            [ -e "$file" ] || continue
+            pod=$(basename "$file" .log)
+            if ! kubectl get pod "$pod" -n "$NAMESPACE" > /dev/null 2>&1; then
+              echo "::group::Deleted pod $pod"
+              cat "$file"
+              echo "::endgroup::"
+            fi
+          done
