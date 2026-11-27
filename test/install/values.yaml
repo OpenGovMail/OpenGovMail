@@ -1,0 +1,23 @@
+# Values for installing the chart in a kind cluster in CI
+# (.github/workflows/chart-install.yml), on top of values-example.yaml, which an
+# install from the installation guide uses. The secrets are placeholders.
+global:
+  tls:
+    # A self-signed issuer from test/install/issuer.yaml. Let's Encrypt can't
+    # reach a cluster on a CI runner.
+    issuer: ci-selfsigned
+  ravenIdp:
+    clientSecret: ci
+    directAuthSecret: ci
+
+thunderid:
+  configuration:
+    server:
+      security:
+        directAuthSecret: ci
+
+# The collaboration services are too large for a CI runner, alongside mail.
+nextcloud:
+  enabled: false
+tuwunel:
+  enabled: false

@@ -3,12 +3,16 @@ kind: Pod
 metadata:
   name: "{{ include "opendkim.fullname" . }}-test-connection"
   labels:
-    {{- include "opendkim.labels" . | nindent 4 }}
+    helm.sh/chart: {{ include "opendkim.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    # Not OpenDKIM's own name label, which would add this pod to the Service's endpoints.
+    app.kubernetes.io/name: opendkim-test
   annotations:
     "helm.sh/hook": test
 spec:
   containers:
-    - name: wget
+    - name: nc
       image: busybox:1.36
-      command: ['sh', '-c', 'nc -zvw5 {{ include "opendkim.fullname" . }} {{ .Values.service.port }}']
+      command: ['sh', '-c', 'nc -zvw5 {{ include "opendkim.serviceName" . }} {{ .Values.service.port }}']
   restartPolicy: Never
