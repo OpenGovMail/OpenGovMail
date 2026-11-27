@@ -13,5 +13,5 @@ data:
     }
 
   redis.conf: |
-    servers = "{{ .Values.dependencies.redis.host }}:{{ .Values.dependencies.redis.port }}";
+    servers = "{{ .Values.dependencies.valkey.host }}:{{ .Values.dependencies.valkey.port }}";
     timeout = 1s;

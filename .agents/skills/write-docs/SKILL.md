@@ -28,7 +28,7 @@ description: Write or edit OpenGovMail documentation (README.md, CONTRIBUTING.md
 
    - **When you edit an existing page,** keep it where it is and keep its type. Don't move or split it as part of the edit.
    - **When you add a new page,** pick its type first. If the content mixes types, split it into separate pages of single types and link them.
-   - **Subchart READMEs** (`charts/opengovmail/charts/<name>/README.md`) describe one subchart and its values. They aren't one of the types above. Follow the format of the existing subchart READMEs, such as `charts/opengovmail/charts/redis/README.md`.
+   - **Subchart READMEs** (`charts/opengovmail/charts/<name>/README.md`) describe one subchart and its values. They aren't one of the types above. Follow the format of the existing subchart READMEs, such as `charts/opengovmail/charts/valkey/README.md`.
 
 2. **Follow the writing rules:**
    - Second person ("you"), present tense, active voice.

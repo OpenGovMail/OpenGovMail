@@ -40,10 +40,10 @@ spec:
     - to:
         - podSelector:
             matchLabels:
-              app.kubernetes.io/name: redis
+              app.kubernetes.io/name: valkey
       ports:
         - protocol: TCP
-          port: {{ .Values.dependencies.redis.port }}
+          port: {{ .Values.dependencies.valkey.port }}
     - to:
         - podSelector:
             matchLabels:

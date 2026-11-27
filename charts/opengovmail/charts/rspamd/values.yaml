@@ -63,8 +63,8 @@ persistence:
   mountPath: /var/lib/rspamd
 
 dependencies:
-  redis:
-    host: opengovmail-redis
+  valkey:
+    host: opengovmail-valkey
     port: 6379
   unbound:
     host: opengovmail-unbound

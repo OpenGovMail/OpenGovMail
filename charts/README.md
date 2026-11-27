@@ -5,7 +5,7 @@ This directory holds the OpenGovMail Helm chart. To install it, follow the [quic
 ## Structure
 
 - `opengovmail/`: the umbrella chart. Its `templates/` hold resources that span services, such as certificates, the ThunderID bootstrap data and the Nextcloud integration.
-- `opengovmail/charts/<service>/`: one subchart per service: `opendkim`, `postfix`, `raven`, `redis`, `rspamd`, `seaweedfs`, `tuwunel` and `unbound`.
+- `opengovmail/charts/<service>/`: one subchart per service: `opendkim`, `postfix`, `raven`, `rspamd`, `seaweedfs`, `tuwunel`, `unbound` and `valkey`.
 - ThunderID and Nextcloud are upstream charts, listed as dependencies in [opengovmail/Chart.yaml](opengovmail/Chart.yaml) and fetched with `helm dependency update`. They aren't stored in Git.
 - [opengovmail/values-example.yaml](opengovmail/values-example.yaml) is a complete values file for a deployment. CI lints and renders it.
 

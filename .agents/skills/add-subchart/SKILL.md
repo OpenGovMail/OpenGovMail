@@ -9,7 +9,7 @@ Each OpenGovMail service is a local subchart in `charts/opengovmail/charts/<name
 
 ## Steps
 
-1. **Copy the closest existing subchart** as a starting point, rather than running `helm create`. `redis` and `unbound` are small examples with a StatefulSet, a Service and a ServiceAccount:
+1. **Copy the closest existing subchart** as a starting point, rather than running `helm create`. `valkey` and `unbound` are small examples with a StatefulSet, a Service and a ServiceAccount:
 
    ```bash
    cp -R charts/opengovmail/charts/unbound charts/opengovmail/charts/<name>
@@ -55,7 +55,7 @@ Each OpenGovMail service is a local subchart in `charts/opengovmail/charts/<name
    Then render with `<name>.enabled` set to `true` and to `false`, and check that disabling it removes all its resources.
 
 7. **Document it:**
-   - `charts/opengovmail/charts/<name>/README.md`: what the service does and a table of its values (key, type, default, description). See `charts/opengovmail/charts/redis/README.md` for the format.
+   - `charts/opengovmail/charts/<name>/README.md`: what the service does and a table of its values (key, type, default, description). See `charts/opengovmail/charts/valkey/README.md` for the format.
    - `docs/reference/technology-stack.md`: the component and its version, as [charts/README.md](../../../charts/README.md) asks for every new service.
    - `docs/reference/helm-values.md`: the values users set, under the matching section.
    - `docs/concepts/architecture.md`: where the service fits.
