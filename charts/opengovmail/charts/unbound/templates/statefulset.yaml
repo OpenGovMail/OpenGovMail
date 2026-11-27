@@ -13,9 +13,7 @@ spec:
   template:
     metadata:
       annotations:
-        {{- if .Values.configuration }}
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
-        {{- end }}
         {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -35,6 +33,12 @@ spec:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # The image's entrypoint is unbound itself: stay in the foreground and
+          # read the config from the ConfigMap.
+          args:
+            - -d
+            - -c
+            - /etc/unbound/unbound.conf
           ports:
             - name: dns
               containerPort: 53
@@ -51,20 +55,14 @@ spec:
           volumeMounts:
             - name: cache
               mountPath: {{ .Values.persistence.mountPath }}
-            {{- if .Values.configuration }}
-            {{- /* subPath over the image's config path: the entrypoint then skips
-                 generating its own (forwarding, host-sized) config. */}}
             - name: config
-              mountPath: /opt/unbound/etc/unbound/unbound.conf
+              mountPath: /etc/unbound/unbound.conf
               subPath: unbound.conf
               readOnly: true
-            {{- end }}
-      {{- if .Values.configuration }}
       volumes:
         - name: config
           configMap:
             name: {{ include "unbound.fullname" . }}-config
-      {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

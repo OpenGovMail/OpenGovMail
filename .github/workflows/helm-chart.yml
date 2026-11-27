@@ -37,3 +37,20 @@ jobs:
 
       - name: Render default values
         run: helm template ci "$CHART" --set global.domain=example.com $SECRETS > /dev/null
+
+      # Unbound is off by default, so the renders above skip it.
+      - name: Render Unbound
+        run: |
+          set -euo pipefail
+          read -ra secrets <<<"$SECRETS"
+          enable=(--set unbound.enabled=true --set rspamd.enabled=true --set redis.enabled=true)
+          out=$(helm template ci "$CHART" --set global.domain=example.com "${secrets[@]}" "${enable[@]}" \
+            --show-only charts/unbound/templates/statefulset.yaml)
+          for want in 'runAsNonRoot: true' 'runAsUser: 101' 'net.ipv4.ip_unprivileged_port_start' \
+              'allowPrivilegeEscalation: false' 'mountPath: /etc/unbound/unbound.conf'; do
+            grep -qF -- "$want" <<<"$out" || { echo "::error::Unbound render is missing: $want"; exit 1; }
+          done
+          if helm template ci "$CHART" --set global.domain=example.com "${secrets[@]}" "${enable[@]}" \
+              --set unbound.configuration= > /dev/null 2>&1; then
+            echo "::error::An empty unbound.configuration should fail to render"; exit 1
+          fi
