@@ -57,9 +57,6 @@ jobs:
             dkim:
               - 'services/dkim/**'
               - '.github/workflows/build-and-push-images.yml'
-            certbot:
-              - 'services/certbot/**'
-              - '.github/workflows/build-and-push-images.yml'
             metadata-service:
               - 'services/metadata-service/**'
               - '.github/workflows/build-and-push-images.yml'
@@ -71,7 +68,7 @@ jobs:
           CHANGED: ${{ steps.changes.outputs.changes }}
         run: |
           if [ "$GITHUB_REF_TYPE" = tag ]; then
-            echo 'list=["smtp","dkim","certbot","metadata-service"]' >> "$GITHUB_OUTPUT"
+            echo 'list=["smtp","dkim","metadata-service"]' >> "$GITHUB_OUTPUT"
           else
             echo "list=${CHANGED:-[]}" >> "$GITHUB_OUTPUT"
           fi

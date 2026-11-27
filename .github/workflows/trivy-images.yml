@@ -40,7 +40,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        service: [smtp, dkim, certbot, metadata-service]
+        service: [smtp, dkim, metadata-service]
         # "release" is the newest release tag, such as 0.6.1.
         tag: [latest, release]
     env:

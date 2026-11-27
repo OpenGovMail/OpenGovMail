@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- The Docker Compose setup: the Compose files, the config generators in `services/config-scripts/`, `conf/opengovmail.yaml` and the scripts in `scripts/`. Install with the Helm chart ([#455](https://github.com/OpenGovMail/OpenGovMail/issues/455)).
+- The `opengovmail-certbot` image. The chart gets certificates from cert-manager ([#455](https://github.com/OpenGovMail/OpenGovMail/issues/455)).
+
 ## [0.6.1] - 2026-11-17
 
 ### Added

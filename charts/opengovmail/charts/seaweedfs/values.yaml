@@ -32,7 +32,7 @@ securityContext:
 # Deployment mode.
 #   combined: one process via `weed server -s3` (default; lazy path).
 #   Fallback: if the pod crash-loops on startup OR S3/bucket ops fail against
-#   combined mode, switch to the 4-role split (mirror docker-compose.seaweedfs.yaml).
+#   combined mode, switch to the 4-role split.
 #   See README "Deployment mode" for the trigger.
 mode: combined
 

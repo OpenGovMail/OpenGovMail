@@ -38,8 +38,7 @@ dependencies:
     version: 0.1.0
     repository: file://charts/tuwunel
     condition: tuwunel.enabled
-  # ThunderID identity server (upstream OCI chart). Mirrors the docker-compose
-  # `thunderid`/`thunderid-setup`/`thunderid-db-init` services.
+  # ThunderID identity server (upstream OCI chart).
   #
   # Renamed upstream from asgardeo/thunder.
   - name: thunderid

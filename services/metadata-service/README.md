@@ -22,14 +22,18 @@ PUSH_INTERVAL_SECONDS=60
 
 ### 2. Deploy
 
+The Helm chart doesn't include this service yet. Run the image next to a ClamAV signature database:
+
 ```bash
-docker-compose up -d opengovmail-metadata
+docker run -d --name opengovmail-metadata --env-file .env -p 8888:8888 \
+  -v /var/lib/clamav:/var/lib/clamav:ro \
+  ghcr.io/opengovmail/opengovmail-metadata-service:main
 ```
 
 ### 3. Check Logs
 
 ```bash
-docker-compose logs -f opengovmail-metadata
+docker logs -f opengovmail-metadata
 ```
 
 You should see:
@@ -108,7 +112,7 @@ curl -X POST http://localhost:8888/api/results \
 
 ### Using Docker
 ```bash
-docker-compose up -d opengovmail-metadata
+docker build -t opengovmail-metadata-service .
 ```
 
 ### Using Makefile
@@ -129,7 +133,7 @@ go build -o metadata-service main.go
 **No heartbeats being sent?**
 1. Check `EXTERNAL_API_URL` is set correctly
 2. Verify `ENABLE_PUSH_SERVICE=true`
-3. Check logs: `docker-compose logs opengovmail-metadata`
+3. Check logs: `docker logs opengovmail-metadata`
 
 **Instance ID showing "unknown"?**
 - Network connectivity issue
