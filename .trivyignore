@@ -1,0 +1,8 @@
+# Trivy findings the project has accepted. The Trivy Security Scan workflow skips them.
+#
+# Add one ID per line, with a comment above it that gives the reason and the issue
+# or pull request that accepted it. Add an expiry date, so the finding is checked
+# again when it passes:
+#
+#   # Not reachable: only the CLI uses the affected function. See #123.
+#   CVE-2026-12345 exp:2027-03-01
