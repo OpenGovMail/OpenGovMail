@@ -3,10 +3,11 @@
 # ================================================================
 # TLS/SSL Security Test Script for OpenGovMail Mail Server
 # ================================================================
-# This script tests all TLS-enabled ports from docker-compose.yaml
+# This script tests all TLS-enabled ports of the mail server
 # and provides comprehensive security analysis.
 #
-# Usage:
+# Usage (PRIMARY_DOMAIN is your global.domain, such as example.com):
+#   PRIMARY_DOMAIN=example.com ./tls_security_test.sh
 #   ./tls_security_test.sh           # Quick mode (1-2 minutes)
 #   ./tls_security_test.sh --full    # Full testssl.sh scan (~60-75 min)
 #   ./tls_security_test.sh --critical # Only critical ports (~30-40 min)
@@ -22,25 +23,12 @@ elif [ "${1:-}" = "--critical" ]; then
     MODE="critical"
 fi
 
-# Read domains from opengovmail.yaml configuration file
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CONFIG_FILE="$SCRIPT_DIR/../../../conf/opengovmail.yaml"
 
-if [ ! -f "$CONFIG_FILE" ]; then
-    echo "Error: Configuration file not found at $CONFIG_FILE"
+if [ -z "${PRIMARY_DOMAIN:-}" ]; then
+    echo "Error: set PRIMARY_DOMAIN to the mail domain, for example PRIMARY_DOMAIN=example.com"
     exit 1
 fi
-
-# Extract domains from YAML file (using awk for better compatibility)
-DOMAINS=$(awk '/^[[:space:]]*-?[[:space:]]*domain:/ {gsub(/^[[:space:]]*-?[[:space:]]*domain:[[:space:]]*/, ""); gsub(/[[:space:]]*$/, ""); if ($0 != "") print $0}' "$CONFIG_FILE")
-
-if [ -z "$DOMAINS" ]; then
-    echo "Error: No domains found in $CONFIG_FILE"
-    exit 1
-fi
-
-# Get the first domain (primary domain)
-PRIMARY_DOMAIN=$(echo "$DOMAINS" | head -n 1)
 MAIL_DOMAIN="mail.$PRIMARY_DOMAIN"
 
 echo "================================================================"

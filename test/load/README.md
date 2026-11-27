@@ -22,25 +22,14 @@ This directory contains the load testing suite for the OpenGovMail Mail Server u
 
 ### Step 1: Create Test Users
 
-> [!NOTE]
-> The code snippet in this section(Step 1) should be run in the server environment where your OpenGovMail Mail Server and Thunder IDP are running.
+Before you run any load tests, create the test users as [Add users](../../docs/how-to/add-users.md) describes. Then list them in `test_data/users.csv`:
 
-Before running any load tests, you must create test users first:
-
-```bash
-cd ../../scripts/user
-./create_test_users.sh
+```csv
+username,email,password
+testuser001,testuser001@example.com,<password>
 ```
 
-This script will:
-- Create test users in Thunder IDP
-- Create users in the shared database
-- Generate a credentials file at `scripts/user/test_users/test_users_credentials.csv`
-
-> [!IMPORTANT]
-> After creating test users, copy the credentials file to the load test directory in local development environment.
-
-Without this file, the load tests will not have any users to authenticate with and will fail.
+If the file doesn't exist, the tests generate one with sample users that aren't on the server, and every login fails.
 
 ### Step 2: Installation
 

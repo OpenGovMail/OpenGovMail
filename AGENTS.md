@@ -16,7 +16,7 @@ Raven lives in its own repository, [OpenGovMail/raven](https://github.com/OpenGo
 |---|---|
 | `charts/opengovmail/` | The umbrella Helm chart: `Chart.yaml`, `values.yaml`, `values-example.yaml` and templates |
 | `charts/opengovmail/charts/<name>/` | Local subcharts (opendkim, postfix, redis, unbound, rspamd, seaweedfs, raven, tuwunel) |
-| `services/smtp/`, `services/dkim/`, `services/certbot/` | Dockerfiles for the images CI publishes |
+| `services/smtp/`, `services/dkim/`, `services/metadata-service/` | Dockerfiles for the images CI publishes |
 | `infra/` | Cluster setup applied once, such as the cert-manager issuers |
 | `docs/` | Documentation, organized by topic type (see [docs/style-guide.md](docs/style-guide.md)) |
 | `test/` | Load and security tests |

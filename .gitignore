@@ -1,48 +1,10 @@
 # Ignore env files and certs
 *.env
-services/conf/.env.conf
-services/test.env
-services/.env
 *.pem
-
-# Ignore rspamd configuration files
-services/spam/conf/worker-controller.inc
-
-# Ignore database data
-services/smtp/conf/virtual-domains
-services/smtp/conf/virtual-users
-services/smtp/conf/virtual-aliases
-
-# Ignore certbot logs
-services/letsencrypt/
-
-# Ignore node modules
-services/webui/node_modules
-services/webui/package-lock.json
 
 # Ignore test results files and test data files
 test/test_results/
 test/test_data/
-
-# Ignore Thunder TLS certificates
-services/thunder/certs/
-
-# Ignore decrypted passwords file
-scripts/decrypt/user_passwords.txt
-
-# Ignore raven directory
-services/raven/
-
-# generated configs and artifacts
-services/opengovmail-config
-opengovmail-observability
-
-# Ignore SeaweedFS configuration with credentials
-services/seaweedfs/s3-config.json
-services/seaweedfs/.env
-
-# Ignore docker-compose override files
-services/docker-compose.override.yml
 
 # Helm dependency-build artifacts (regenerate via `helm dependency update`)
 charts/opengovmail/Chart.lock

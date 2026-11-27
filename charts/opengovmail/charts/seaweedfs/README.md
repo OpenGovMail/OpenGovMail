@@ -28,11 +28,10 @@ protects it from deletion). Set `s3.secretKey` explicitly to pin your own.
 
 ## Deployment mode — combined vs 4-role split
 
-Default is **combined** mode (one pod). Note the reference
-`services/docker-compose.seaweedfs.yaml` uses the **4-role split** (separate
-master/volume/filer/s3 containers) — that split is the *proven* config;
-combined mode is the lazy single-pod path and has known startup-ordering quirks
-(filer/master race).
+Default is **combined** mode (one pod). The retired Docker Compose setup used
+the **4-role split** (separate master/volume/filer/s3 containers) — that split
+is the *proven* config; combined mode is the lazy single-pod path and has known
+startup-ordering quirks (filer/master race).
 
 **Fallback trigger — switch to the 4-role split if:**
 - the pod crash-loops on startup, or
@@ -40,8 +39,15 @@ combined mode is the lazy single-pod path and has known startup-ordering quirks
   `helm test` keeps failing to reach the cluster).
 
 The split is not implemented yet (`mode` values other than `combined` `fail`
-the render). To add it, mirror the four services in the compose file as separate
-containers in one pod (or separate StatefulSets) sharing the data PVC.
+the render). To add it, run the four roles as separate containers in one pod
+(or separate StatefulSets) sharing the data PVC:
+
+```text
+weed master -ip.bind=0.0.0.0 -port=9333
+weed volume -mserver=<master>:9333 -ip.bind=0.0.0.0 -port=8080 -max=10
+weed filer -master=<master>:9333 -ip.bind=0.0.0.0
+weed s3 -filer=<filer>:8888 -ip.bind=0.0.0.0 -port=8333 -config=/etc/seaweedfs/s3.json
+```
 
 ## Storage class
 
