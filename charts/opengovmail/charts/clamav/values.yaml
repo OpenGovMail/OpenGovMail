@@ -1,0 +1,116 @@
+# Default values for clamav.
+# The Service name comes from the umbrella's global.serviceNames.clamav, which
+# matches rspamd's dependencies.clamav.host default (clamav-server).
+
+replicaCount: 1
+
+image:
+  repository: clamav/clamav
+  # Pinned; the image's clamd and freshclam versions. Matches appVersion.
+  tag: "1.5.5"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+
+# The image's entrypoint runs `chown -R clamav:clamav /var/lib/clamav`, which
+# fails as a non-root user unless the database volume is already owned by
+# clamav. This init container sets that ownership, with CHOWN as its only
+# capability, before clamd starts.
+initContainer:
+  image:
+    repository: busybox
+    tag: "1.36"
+    pullPolicy: IfNotPresent
+
+# clamd and freshclam run as the image's clamav user (UID 100, GID 101).
+podSecurityContext:
+  runAsUser: 100
+  runAsGroup: 101
+  runAsNonRoot: true
+  fsGroup: 101
+  fsGroupChangePolicy: OnRootMismatch
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: false
+
+service:
+  type: ClusterIP
+  port: 3310
+  targetPort: 3310
+  protocol: TCP
+  annotations: {}
+
+# clamd holds the whole signature database in memory, and briefly twice that
+# while it reloads after a freshclam update.
+resources:
+  limits:
+    cpu: 1000m
+    memory: 2867Mi
+  requests:
+    cpu: 500m
+    memory: 1Gi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Signature database. Keeping it avoids downloading about 300 MB on every restart.
+# Only the pods listed in clients, and this chart's helm test, can connect to
+# clamd. Each entry is a set of pod labels. Rspamd's pods are labelled
+# app.kubernetes.io/name=rspamd.
+networkPolicy:
+  enabled: true
+  clients:
+    - app.kubernetes.io/name: rspamd
+
+persistence:
+  enabled: true
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 2Gi
+  mountPath: /var/lib/clamav
+
+env:
+  # false runs freshclam next to clamd to keep signatures up to date.
+  noFreshclamd: false
+
+# The first start downloads the signature database before clamd listens, which
+# can take several minutes.
+startupProbe:
+  tcpSocket:
+    port: 3310
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 60
+
+livenessProbe:
+  tcpSocket:
+    port: 3310
+  periodSeconds: 30
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  tcpSocket:
+    port: 3310
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- A ClamAV subchart, turned on with `clamav.enabled`, so Rspamd can scan incoming mail for viruses without a separate ClamAV server. It runs as a non-root user and connects to Rspamd at `clamav-server` ([#326](https://github.com/OpenGovMail/OpenGovMail/pull/326)).
+
 ### Fixed
 
 - `helm test` for OpenDKIM connects to the `opendkim` Service. It used the release-prefixed name, which no Service has, so the test always failed ([#453](https://github.com/OpenGovMail/OpenGovMail/pull/453)).
