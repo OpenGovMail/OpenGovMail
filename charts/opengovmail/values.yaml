@@ -571,7 +571,7 @@ nextcloudDeps:
     enabled: true
     image:
       repository: coturn/coturn
-      tag: "4.18.0"
+      tag: "4.19.2"
     # Empty uses nextcloud.nextcloud.host, which must then resolve to the node coturn runs on.
     host: ""
     # The node's public IP when the node only has a private one, as on some cloud VMs.
@@ -629,7 +629,7 @@ nextcloudDeps:
     resourceIdentifier: "https://localhost:8090/mcp"
     image:
       repository: python
-      tag: "3.12-alpine"
+      tag: "3.15-alpine"
     resources:
       requests: {cpu: 25m, memory: 32Mi}
       limits: {cpu: 200m, memory: 64Mi}
@@ -674,7 +674,7 @@ tuwunelDeps:
     resourceIdentifier: "https://localhost:8090/mcp"
     image:
       repository: python
-      tag: "3.12-alpine"
+      tag: "3.15-alpine"
     resources:
       requests: {cpu: 25m, memory: 32Mi}
       limits: {cpu: 200m, memory: 64Mi}
