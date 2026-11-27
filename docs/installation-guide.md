@@ -32,7 +32,7 @@ The installation has five stages:
 | CPU | 1 CPU for email. 2 CPUs with the collaboration services. |
 | Memory | 4 GB |
 | Network | A static public IP address. Inbound and outbound connections on port 25 must be possible. |
-| Kubernetes | k3s, or a different cluster with an ingress controller. Postfix and Raven use host ports, thus mail operates on one node only. |
+| Kubernetes | Version 1.35 to 1.37. k3s, or a different cluster with an ingress controller. Postfix and Raven use host ports, thus mail operates on one node only. |
 | Tools | [Helm](https://helm.sh/docs/intro/install/), [kubectl](https://kubernetes.io/docs/tasks/tools/), [Git](https://git-scm.com/), `openssl` |
 | cert-manager | v1.20.0. You install it in Step 3. |
 

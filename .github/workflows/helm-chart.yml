@@ -51,3 +51,37 @@ jobs:
           # SECRETS holds several --set flags and is split into words on purpose.
           # shellcheck disable=SC2086
           helm template ci "$CHART" --set global.domain=example.com $SECRETS > /dev/null
+
+      # Checks every rendered object against the Kubernetes schema, so a misspelled
+      # field or a wrong type fails here instead of at install time. The last case
+      # turns on every subchart that is off by default, so each one is checked.
+      - name: Validate manifests against the Kubernetes schema
+        shell: bash
+        env:
+          # The oldest and newest Kubernetes versions we support. Update them, and
+          # the requirements in docs/installation-guide.md, when a version leaves
+          # or joins upstream support.
+          KUBE_VERSIONS: 1.35.0 1.37.0
+          KUBECONFORM: ghcr.io/yannh/kubeconform:v0.8.0@sha256:faffaf43f95aa6425306e1ab8d6fcad72acb9049158f38e574c085ea1ec0f64e
+          # Schemas for the cert-manager Certificate and other CRDs.
+          CRD_SCHEMAS: https://raw.githubusercontent.com/datreeio/CRDs-catalog/b50f3fbc45169a14b6d2d3f767b32fd96ef4a3fa/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json
+        run: |
+          read -ra secrets <<<"$SECRETS"
+          optional=(--set redis.enabled=true --set unbound.enabled=true --set rspamd.enabled=true
+                    --set tuwunel.enabled=true --set nextcloud.enabled=true)
+          cases=(default example all)
+          for version in $KUBE_VERSIONS; do
+            for case in "${cases[@]}"; do
+              case $case in
+                default) args=(--set global.domain=example.com) ;;
+                example) args=(-f "$CHART/values-example.yaml") ;;
+                all) args=(-f "$CHART/values-example.yaml" "${optional[@]}") ;;
+              esac
+              echo "::group::Kubernetes $version, $case values"
+              helm template ci "$CHART" "${args[@]}" "${secrets[@]}" \
+                | docker run --rm -i "$KUBECONFORM" -strict -summary \
+                    -kubernetes-version "$version" \
+                    -schema-location default -schema-location "$CRD_SCHEMAS" -
+              echo "::endgroup::"
+            done
+          done
